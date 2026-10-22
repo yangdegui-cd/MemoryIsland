@@ -1,6 +1,8 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 
+const FIREFLY = {count: 90, mobileCount: 48, leaves: 14, speed: 0.018, brightness: 0.85};
+
 export default function IslandIntro({language}:{language:'zh'|'en'}){
   const [visible,setVisible]=useState(true);
   const [leaving,setLeaving]=useState(false);
@@ -24,30 +26,12 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
     let width=0,height=0,frame=0;
     const resize=()=>{width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio||1,2);element.width=width*dpr;element.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);};
     resize();addEventListener('resize',resize);
-    // All light is generated here: no photograph, ring texture or masked backdrop.
-    const makeGlow=(core:string)=>{
-      const sprite=document.createElement('canvas');sprite.width=sprite.height=32;
-      const brush=sprite.getContext('2d')!;
-      const gradient=brush.createRadialGradient(16,16,0,16,16,16);
-      gradient.addColorStop(0,core);gradient.addColorStop(.13,'#ffe8ad');
-      gradient.addColorStop(.35,'rgba(226,170,70,.3)');gradient.addColorStop(1,'rgba(226,170,70,0)');
-      brush.fillStyle=gradient;brush.fillRect(0,0,32,32);return sprite;
-    };
-    const glow=makeGlow('#fff8dd');
-    const count=width<700?6500:16000;
-    const particles=Array.from({length:count},()=>({
-      seed:Math.random()*Math.PI*2,
-      lane:Math.random(),
-      spread:(Math.random()+Math.random()+Math.random()-1.5),
-      size:Math.random()<.009?1.8+Math.random()*1.6:.25+Math.random()*.9,
-      speed:.018+Math.random()*.065,
-      drift:.008+Math.random()*.025,
-      phase:Math.random()*Math.PI*2,
-      life:2+Math.random()*4,
-      age:Math.random()*6,
-      alpha:.3+Math.random()*.7,
+    const particles=Array.from({length:width<700?FIREFLY.mobileCount:FIREFLY.count},()=>({
+      x:Math.random(),y:.12+Math.random()*.8,
+      depth:Math.random(),phase:Math.random()*Math.PI*2,
+      speed:.65+Math.random()*.7,
     }));
-    const stars=Array.from({length:250},()=>({x:Math.random(),y:Math.random(),size:.25+Math.random()*.85,phase:Math.random()*6}));
+    const leaves=Array.from({length:FIREFLY.leaves},()=>({x:Math.random(),y:Math.random(),phase:Math.random()*6,size:7+Math.random()*13}));
     const start=performance.now();
     let last=0;
     const draw=(now:number)=>{
@@ -55,48 +39,46 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
       if(now-last<1000/45)return;
       last=now;
       const seconds=(now-start)/1000;
-      ctx.clearRect(0,0,width,height);ctx.globalCompositeOperation='lighter';
-      const entrance=Math.min(1,seconds/1.1);
-      const release=Math.max(0,Math.min(1,(seconds-4.9)/1.1));
-      const scale=1+(1-entrance)*.32+release*.55;
-      const unit=Math.max(width,height*.95);
-      for(const star of stars){
-        ctx.globalAlpha=(.15+Math.sin(seconds*.8+star.phase)**2*.4)*entrance;
-        ctx.fillStyle='#e8c88b';ctx.fillRect(star.x*width,star.y*height,star.size,star.size);
+      ctx.clearRect(0,0,width,height);
+      const fade=Math.min(1,seconds/.8);
+      // Open, gently arched wind traces; no closed rings or rotation.
+      for(let line=0;line<2;line++){
+        ctx.beginPath();
+        for(let step=0;step<=100;step++){
+          const u=step/100;
+          const arch=Math.exp(-(((u-.52)/.24)**2));
+          const x=u*width;
+          const y=height*(.52-arch*.36+line*.025)+Math.sin(u*8+seconds*.25+line)*8;
+          if(step===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+        }
+        ctx.strokeStyle=line===0?'rgba(217,175,73,.32)':'rgba(133,152,101,.25)';ctx.lineWidth=.7;ctx.stroke();
       }
       for(const p of particles){
-        const life=((seconds+p.age)%p.life)/p.life;
-        const envelope=Math.sin(life*Math.PI)**.65;
-        // Independent lifetimes and local turbulence break up the overall spiral silhouette.
-        // No shared rotation transform or discrete concentric orbits.
-        const angle=p.seed+seconds*p.speed;
-        const bend=Math.sin(angle*2.3+seconds*.17)*.028+Math.sin(angle*5.1+p.phase)*.012;
-        const lane=.315+p.lane*.13;
-        const widthOfCloud=.024+.023*(.5+.5*Math.sin(angle*3.7+seconds*.22));
-        const radialDrift=(life-.5)*p.drift;
-        const radius=(lane+p.spread*widthOfCloud+bend+radialDrift)*scale;
-        const turbulenceX=Math.sin(seconds*(.3+p.speed)+p.phase)*unit*.012;
-        const turbulenceY=Math.cos(seconds*.45+p.phase*1.7)*unit*.009;
-        const ox=Math.cos(angle)*unit*radius;
-        const oy=Math.sin(angle)*unit*radius*.48;
-        const x=width*.5+ox+turbulenceX;
-        const y=height*.49+oy-ox*.23+turbulenceY;
-        const depth=(Math.sin(angle)+1)/2;
-        const size=p.size*(.8+depth*.6);
-        // Broken, bright wisps travel through a broader dim dust cloud.
-        const wisp=.3+.7*(.5+.5*Math.sin(angle*4.2+seconds*.3+p.lane*3))**2;
-        const alpha=p.alpha*entrance*(1-release*.9)*envelope*wisp;
-        ctx.globalAlpha=alpha;
-        if(p.size>1.8){
-          const diameter=size*(8+depth*5);
-          ctx.drawImage(glow,x-diameter/2,y-diameter/2,diameter,diameter);
-        }else{
-          ctx.fillStyle=p.lane>.5?'#f0c681':'#ffe6ae';
-          ctx.fillRect(x,y,Math.max(.65,size),Math.max(.65,size));
-          if(p.size>.85){const halo=size*5;ctx.globalAlpha=alpha*.35;ctx.drawImage(glow,x-halo/2,y-halo/2,halo,halo);}
-        }
+        const x=((p.x+seconds*FIREFLY.speed*p.speed)%1.15-.075)*width+Math.sin(seconds*.6+p.phase)*12;
+        const y=p.y*height+Math.sin(seconds*.5+p.phase)*height*.027;
+        // Keep the title readable, while allowing foreground glow around the edges.
+        const inText=x>width*.26&&x<width*.74&&y>height*.57&&y<height*.79;
+        const pulse=.4+.6*(.5+.5*Math.sin(seconds*1.4+p.phase));
+        const core=.9+p.depth*2;
+        const radius=6+p.depth**4*36;
+        const glow=ctx.createRadialGradient(x,y,0,x,y,radius);
+        glow.addColorStop(0,'rgba(255,255,235,.95)');
+        glow.addColorStop(.12,'rgba(255,231,125,.85)');
+        glow.addColorStop(.35,'rgba(250,203,54,.32)');
+        glow.addColorStop(1,'rgba(250,203,54,0)');
+        ctx.globalAlpha=fade*pulse*FIREFLY.brightness*(inText?.12:1);
+        ctx.fillStyle=glow;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+        ctx.beginPath();ctx.arc(x,y,core,0,Math.PI*2);ctx.fillStyle='#fffde0';ctx.fill();
       }
-      ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+      for(const leaf of leaves){
+        const x=((leaf.x+seconds*.012)%1.16-.08)*width;
+        const y=leaf.y*height+Math.sin(seconds*.5+leaf.phase)*24;
+        ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(seconds*.35+leaf.phase)*.6+leaf.phase);
+        ctx.globalAlpha=fade*.6;ctx.fillStyle='#8b9a65';
+        ctx.beginPath();ctx.moveTo(-leaf.size,0);ctx.quadraticCurveTo(0,-leaf.size*.65,leaf.size,0);ctx.quadraticCurveTo(0,leaf.size*.65,-leaf.size,0);ctx.fill();
+        ctx.strokeStyle='#c4c99c';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(-leaf.size,0);ctx.lineTo(leaf.size,0);ctx.stroke();ctx.restore();
+      }
+      ctx.globalAlpha=1;
     };
     frame=requestAnimationFrame(draw);
     return ()=>{cancelAnimationFrame(frame);removeEventListener('resize',resize);};
