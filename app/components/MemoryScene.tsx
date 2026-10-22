@@ -9,6 +9,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { Entry } from './data';
+import { roomBounds, containCamera } from './albumRoom';
 
 type Props = { photos: Entry[]; onSelect: (photo: Entry) => void };
 const paperVertex = `
@@ -155,21 +156,28 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const inset = new THREE.MeshStandardMaterial({ color: '#2a241f', roughness: .72 });
     const glass = new THREE.MeshBasicMaterial({ color: '#ffe5ae', toneMapped: false });
     materials.add(plaster); materials.add(inset); materials.add(glass);
-    const cameraMin = new THREE.Vector3(-8, -.5, -28);
-    const cameraMax = new THREE.Vector3(8, 9, 18);
-    const targetMin = new THREE.Vector3(-2, 1, -24);
-    const targetMax = new THREE.Vector3(2, 4, -8);
-    // Closed interior: floor -4, side walls +/-12, end walls -43 / 22.
-    box(.6, 18, 66, plaster, -12, 5, -10);
-    box(.6, 18, 66, plaster, 12, 5, -10);
-    box(24, 18, .6, plaster, 0, 5, -43);
-    box(24, 18, .6, plaster, 0, 5, 22);
-    box(24, .5, 66, plaster, 0, 14, -10);
+    // A continuous inward-facing box closes all six sides, including the floor
+    // underneath its reflective finish. Decorative geometry lives inside it.
+    const roomSize = roomBounds.getSize(new THREE.Vector3());
+    const roomCenter = roomBounds.getCenter(new THREE.Vector3());
+    const interiorMaterial = plaster.clone();
+    interiorMaterial.side = THREE.BackSide;
+    const enclosure = keep(new THREE.Mesh(new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z), interiorMaterial));
+    enclosure.position.copy(roomCenter); scene.add(enclosure);
+    // Layered cornices and lower dado panels add depth to the enclosing shell.
     for (const side of [-1, 1]) {
+      for (let tier = 0; tier < 3; tier++) {
+        box(.28 + tier * .15, .16, 64.8, bronze, side * (11.75 - tier * .08), 10.1 + tier * .24, -10.5);
+      }
       for (const y of [-3.6, -.8, 9.3, 13.4]) box(.25, .14, 65, bronze, side * 11.6, y, -10);
       for (let bay = 0; bay < 6; bay++) {
         const z = 16 - bay * 9;
         box(.16, 10, 5.7, inset, side * 11.58, 4.3, z);
+        box(.45, .22, 6.1, stone, side * 11.35, -.9, z);
+        for (const dz of [-2, 0, 2]) {
+          box(.12, 1.8, 1.65, inset, side * 11.7, -2.4, z + dz);
+          for (const yy of [-3.35, -1.45]) box(.2, .07, 1.8, bronze, side * 11.55, yy, z + dz);
+        }
         // Tall luminous panes sit in the right wall, with real mullions.
         if (side === 1) {
           const windowShape = new THREE.Shape();
@@ -196,19 +204,34 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     // Gilded coffers tie the ceiling to the same columns and floor.
     for (let z = 18; z > -43; z -= 4.5) {
       box(23.5, .16, .12, bronze, 0, 13.65, z);
-      for (const x of [-8, -4, 0, 4, 8]) box(.10, .16, 4.5, bronze, x, 13.65, z - 2.25);
+      for (const x of [-8, -4, 0, 4, 8]) {
+        box(.10, .16, 4.5, bronze, x, 13.65, z - 2.25);
+        box(3.5, .08, 3.9, inset, x + 1.85, 13.85, z - 2.25);
+        for (const dx of [-1.55, 1.55]) box(.06, .12, 3.6, bronze, x + 1.85 + dx, 13.74, z - 2.25);
+        for (const dz of [-1.8, 1.8]) box(3.15, .12, .06, bronze, x + 1.85, 13.74, z - 2.25 + dz);
+      }
     }
     for (const x of [-8, -4, 0, 4, 8]) {
       box(3.5, 11, .2, inset, x, 4, -42.55);
       for (const dx of [-1.75, 1.75]) box(.09, 11, .3, bronze, x + dx, 4, -42.35);
       for (const y of [-1.5, 9.5]) box(3.6, .09, .3, bronze, x, y, -42.35);
     }
+    // Share the fluted shaft geometry across every column.
+    const shaft = new THREE.CylinderGeometry(.48, .62, 12.1, 120, 8);
+    const shaftPosition = shaft.attributes.position;
+    for (let v = 0; v < shaftPosition.count; v++) {
+      const x = shaftPosition.getX(v), z = shaftPosition.getZ(v);
+      const flute = 1 - .065 * (1 + Math.cos(Math.atan2(z, x) * 20));
+      shaftPosition.setX(v, x * flute); shaftPosition.setZ(v, z * flute);
+    }
+    shaft.computeVertexNormals();
+    const volute = new THREE.TorusGeometry(.23, .07, 8, 24);
     // Repeating carved pilasters and arch ribs give camera movement real parallax.
     for (let i = 0; i < 7; i++) {
       const z = 20 - i * 9;
       for (const side of [-1, 1]) {
         const x = side * 10.7;
-        const column = keep(new THREE.Mesh(new THREE.CylinderGeometry(.48, .62, 13.2, 16), stone));
+        const column = keep(new THREE.Mesh(shaft, stone));
         column.position.set(x, 2.7, z); scene.add(column);
         for (const y of [-3.5, -3.1, 8.9, 9.2]) {
           const ring = keep(new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .16, 24), bronze));
@@ -216,6 +239,13 @@ export default function MemoryScene({ photos, onSelect }: Props) {
         }
         box(1.55, .42, 1.65, bronze, x, -3.2, z);
         box(1.4, .2, 1.5, bronze, x, 9.3, z);
+        box(1.7, .16, 1.7, stone, x, 9.55, z);
+        const capital = keep(new THREE.Mesh(new THREE.CylinderGeometry(.77, .47, .65, 20), bronze));
+        capital.position.set(x, 8.55, z); scene.add(capital);
+        for (const dx of [-.55, .55]) {
+          const scroll = keep(new THREE.Mesh(volute, bronze));
+          scroll.position.set(x + dx, 8.9, z + .6); scene.add(scroll);
+        }
         for (const offset of [-.28, 0, .28]) box(.045, 11.8, .065, bronze, x + offset, 2.7, z + .58);
       }
       const curve = new THREE.EllipseCurve(0, 9.3, 10.7, 4.7, 0, Math.PI, false, 0);
@@ -228,7 +258,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const mirror = new Reflector(new THREE.PlaneGeometry(29, 86), {
       color: new THREE.Color('#5b4632'), textureWidth: 768, textureHeight: 768, clipBias: .003,
     });
-    keep(mirror); mirror.rotation.x = -Math.PI / 2; mirror.position.set(0, -4, -12); scene.add(mirror);
+    keep(mirror); mirror.rotation.x = -Math.PI / 2; mirror.position.set(0, -3.97, -10.5); scene.add(mirror);
     const floor = keep(new THREE.Mesh(new THREE.PlaneGeometry(29, 86), new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -357,8 +387,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       controls.update();
       // Clamp both the orbit centre and eye, including accumulated pan/damping.
       // Keeping the eye above the reflector avoids its undefined underside view.
-      controls.target.clamp(targetMin, targetMax);
-      camera.position.clamp(cameraMin, cameraMax);
+      containCamera(camera.position, controls.target);
       camera.lookAt(controls.target);
       composer.render(); frame = requestAnimationFrame(tick);
     }
