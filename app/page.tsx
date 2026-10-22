@@ -19,7 +19,7 @@ export default function Home(){
   const destinations=[
     {name:t.palace,href:'/album',className:'palace',Icon:Landmark},
     {name:t.river,href:'/river',className:'river',Icon:Waves},
-    {name:t.game,href:'/wheel',className:'game',Icon:Gamepad2},
+    {name:t.game,href:'/games',className:'game',Icon:Gamepad2},
     {name:t.sky,href:'/mood',className:'sky',Icon:Cloud},
   ];
   return <div className="island-home" data-language={language}>
