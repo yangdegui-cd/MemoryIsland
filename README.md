@@ -6,6 +6,7 @@
 |---|---|---|
 | 我的小岛 | / | docs/home.md |
 | 回忆相册 | /album | docs/album.md |
+| 时光长河 | /river | docs/river.md |
 | 生活手记 | /diary | docs/diary.md |
 | 心情日历 | /mood | docs/mood.md |
 | 习惯花园 | /habits | docs/habits.md |
