@@ -77,7 +77,7 @@ const paperFragment = `
     vec3 viewDir = normalize(cameraPosition - vWorld);
     float sheen = pow(abs(dot(normal, normalize(sunlight + viewDir))),42.) * .075;
     col += vec3(1.,.87,.65) * sheen * inside * (1.-step(.5,vSurface));
-    col = mix(col, vec3(.10,.065,.035), smoothstep(150.,350.,vDepth) * .20);
+    col = mix(col, vec3(.52,.42,.29), smoothstep(150.,350.,vDepth) * .12);
     float rim = 1. - smoothstep(.012,.045,min(min(vUv.x,1.-vUv.x),min(vUv.y,1.-vUv.y)));
     col = col * (1. + uHover * .12) + uHover * rim * vec3(.50,.32,.12);
     gl_FragColor = vec4(col,alpha);
@@ -107,7 +107,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     setUnsupported(false);
     setFailed(0);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    renderer.setClearColor('#160f0a');
+    renderer.setClearColor('#c4ad86');
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
@@ -164,14 +164,14 @@ export default function MemoryScene({ photos, onSelect }: Props) {
 
     // Architecture surrounds the photographs in one continuous world, rather
     // than projecting a perspective illustration onto a second room.
-    scene.background = new THREE.Color('#35271a');
-    scene.fog = new THREE.FogExp2('#35271a', .003);
+    scene.background = new THREE.Color('#d6c4a5');
+    scene.fog = new THREE.FogExp2('#d6c4a5', .0015);
 
     // Six separately authored flat surface textures, mapped directly onto a
     // large enclosed room. No spherical projection of a perspective painting.
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
     materials.add(bronze);
-    scene.add(new THREE.HemisphereLight('#ffe2af', '#493623', 2));
+    scene.add(new THREE.HemisphereLight('#fff1d9', '#aa8b60', 2));
     const roomSize = palaceBounds.getSize(new THREE.Vector3());
     const roomGeometry = new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z);
     const uv = roomGeometry.attributes.uv;
@@ -183,13 +183,13 @@ export default function MemoryScene({ photos, onSelect }: Props) {
         const vertex = face * 4 + corner;
         const u = 1 - uv.getX(vertex), v = uv.getY(vertex);
         // Inset samples prevent neighbouring atlas faces bleeding at their edges.
-        uv.setXY(vertex, (column + .003 + u * .994) / 3, (1 - row + .003 + v * .994) / 2);
+        uv.setXY(vertex, (column + .006 + u * .988) / 3, (1 - row + .006 + v * .988) / 2);
       }
     }
     const roomMaterial = new THREE.MeshBasicMaterial({side:THREE.BackSide,color:'#ffffff',toneMapped:false,fog:false});
     const room = keep(new THREE.Mesh(roomGeometry,roomMaterial));
     room.position.copy(palaceBounds.getCenter(new THREE.Vector3())); scene.add(room);
-    load('/art/palace-six-face-atlas-v1.png', texture => {
+    load('/art/album-cozy-oak-atlas-v1.png', texture => {
       texture.generateMipmaps = false;
       texture.minFilter = THREE.LinearFilter;
       roomMaterial.map = texture; roomMaterial.needsUpdate = true;

@@ -6,6 +6,7 @@ import {useRecords,today,type Entry} from '../components/data';
 import {samplePhotos,photoUrl,validatePhotoFiles} from '../components/albumPhotos';
 import PhotoViewer from './PhotoViewer';
 import UploadPreview from './UploadPreview';
+import {preparePhotoUpload,readPhotoError} from './upload';
 import '../river/river.css';
 import './album.css';
 
@@ -62,8 +63,10 @@ export default function Album(){
     setBusy(true);setError('');setMessage('');let count=0;
     try{
       for(const file of files){
-        const form=new FormData();form.set('file',file);form.set('title',title.trim()||file.name.replace(/\.[^.]+$/,'').slice(0,120));form.set('date',date);
-        const r=await fetch('/api/photos',{method:'POST',body:form});if(!r.ok)throw Error(((await r.json()) as {error:string}).error);
+        setMessage(`正在处理 ${count+1} / ${files.length} 张`);
+        const uploadFile=await preparePhotoUpload(file);
+        const form=new FormData();form.set('file',uploadFile);form.set('title',title.trim()||file.name.replace(/\.[^.]+$/,'').slice(0,120));form.set('date',date);
+        const r=await fetch('/api/photos',{method:'POST',body:form});if(!r.ok)throw Error(await readPhotoError(r));
         count++;setMessage(`已收藏 ${count} / ${files.length} 张`);
       }
       setFiles([]);setTitle('');if(fileInput.current)fileInput.current.value='';setUploadOpen(false);
@@ -73,13 +76,13 @@ export default function Album(){
   async function remove(photo:Entry){
     if(!confirm('确定删除这张照片？删除后无法恢复。'))return;
     setBusy(true);setError('');
-    try{const res=await fetch('/api/photos/'+photo.id,{method:'DELETE'});if(!res.ok)throw Error(((await res.json()) as {error:string}).error);closePhoto();await s.reload()}
+    try{const res=await fetch('/api/photos/'+photo.id,{method:'DELETE'});if(!res.ok)throw Error(await readPhotoError(res,'删除失败，请重试。'));closePhoto();await s.reload()}
     catch(e){setError(e instanceof Error?e.message:'删除失败')}finally{setBusy(false)}
   }
   function next(delta:number){if(!selected)return;const i=displayPhotos.findIndex(r=>r.id===selected.id);selectPhoto(displayPhotos[(i+delta+displayPhotos.length)%displayPhotos.length],true)}
   return <div ref={root} className="album-world">
     <section className="album-stage" aria-label="三维悬浮照片墙"><MemoryScene photos={s.rows} onSelect={selectPhoto}/><div className="universe-grain"/></section>
-    <header className="river-header"><div className="river-brand"><h1>回忆相册</h1><span>PALACE OF MEMORIES</span></div><div className="river-actions">
+    <header className="river-header"><div className="river-brand"><h1>回忆相册</h1><span>HOUSE OF MEMORIES</span></div><div className="river-actions">
       <button aria-label="收藏照片" title="收藏照片" onClick={()=>{setDate(today());setUploadOpen(true)}}><Upload size={17}/></button>
       <button aria-label="全部照片" title="全部照片" onClick={()=>setShowAll(true)}><Images size={17}/></button>
       <button aria-label="切换全屏" onClick={fullscreen}><Maximize2 size={17}/></button><a href="/"><ArrowLeft size={15}/>返回小岛</a>
@@ -88,7 +91,7 @@ export default function Album(){
     {uploadOpen&&<div className="album-panel-backdrop"><section className="panel editor" role="dialog" aria-modal="true" aria-label="收藏照片">
       <div className="section-head"><h3>每一张，都有自己的故事。</h3><button aria-label="关闭上传" className="icon-button" disabled={busy} onClick={()=>setUploadOpen(false)}><X size={18}/></button></div>
       <form onSubmit={upload}>
-        <label className="photo-file">选择照片<input ref={fileInput} disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{const next=Array.from(e.target.files||[]),problem=validatePhotoFiles(next);if(problem){setError(problem);e.target.value='';return}setFiles(next);setError('')}}/><small>也可直接粘贴截图（⌘V / Ctrl+V）。每张不超过 8MB，一次最多 12 张。</small></label>
+        <label className="photo-file">选择照片<input ref={fileInput} disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{const next=Array.from(e.target.files||[]),problem=validatePhotoFiles(next);if(problem){setError(problem);e.target.value='';return}setFiles(next);setError('')}}/><small>也可直接粘贴截图（⌘V / Ctrl+V）。每张不超过 8MB，一次最多 12 张；大图会自动压缩。</small></label>
         {!!files.length&&<UploadPreview files={files} busy={busy} onRemove={index=>{setFiles(current=>current.filter((_,i)=>i!==index));if(fileInput.current)fileInput.current.value=''}}/>}
         <div className="form-grid"><label>这段回忆的名字（可选）<input maxLength={120} value={title} disabled={busy} onChange={e=>setTitle(e.target.value)} placeholder="不填则使用照片文件名"/></label><label>回忆日期<input type="date" required disabled={busy} value={date} onChange={e=>setDate(e.target.value)}/></label></div>
         <button className="button coral" disabled={busy||!files.length}><Upload size={16}/>{busy?message||'正在收藏…':`上传${files.length?' '+files.length+' 张':''}照片`}</button>
