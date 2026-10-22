@@ -346,7 +346,23 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const palace = new THREE.Group();
     for (const object of [...scene.children]) palace.add(object);
     palace.scale.copy(palaceScale); palace.position.y = 4 * (palaceScale.y - 1);
+    // Use the user-selected palace artwork without simplified geometry covering
+    // its carved detail. Navigation remains bounded; photographs stay true 3D.
+    palace.visible = false;
     scene.add(palace);
+    let palaceArtwork: THREE.Texture | null = null;
+    const fitArtwork = () => {
+      if (!palaceArtwork) return;
+      const image = palaceArtwork.image as HTMLImageElement;
+      const imageAspect = image.width / image.height;
+      const viewAspect = root!.clientWidth / Math.max(1, root!.clientHeight);
+      palaceArtwork.repeat.set(Math.min(1, viewAspect / imageAspect), Math.min(1, imageAspect / viewAspect));
+      palaceArtwork.offset.set((1 - palaceArtwork.repeat.x) / 2, (1 - palaceArtwork.repeat.y) / 2);
+      palaceArtwork.updateMatrix();
+    };
+    load('/art/palace-reference.png', texture => {
+      palaceArtwork = texture; scene.background = texture; fitArtwork();
+    });
 
     const cards: { mesh: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; angles: THREE.Vector3 }[] = [];
     const all: Entry[] = photos.length ? photos.slice(0, 60) : Array.from({ length: 44 }, (_, i) => ({ id: `sample-${i}`, kind: 'sample', data: {}, createdAt: 0 }));
@@ -411,7 +427,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const width = root!.clientWidth, height = root!.clientHeight;
       if (!width || !height) return;
       renderer.setSize(width, height, false); composer.setSize(width, height);
-      camera.aspect = width / height; camera.updateProjectionMatrix();
+      camera.aspect = width / height; camera.updateProjectionMatrix(); fitArtwork();
     }
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
     let frame = 0;
