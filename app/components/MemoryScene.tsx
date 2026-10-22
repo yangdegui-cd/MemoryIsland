@@ -9,7 +9,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { Entry } from './data';
-import { roomBounds, containCamera } from './albumRoom';
+import { roomBounds, palaceScale, containCamera } from './albumRoom';
 
 type Props = { photos: Entry[]; onSelect: (photo: Entry) => void };
 const paperVertex = `
@@ -53,7 +53,7 @@ const paperFragment = `
     float lit = abs(dot(normal, sunlight));
     col *= .68 + lit * .52;
     col += vec3(.085, .039, .009) * lit;
-    float fog = smoothstep(13., 49., vDepth);
+    float fog = smoothstep(35., 115., vDepth);
     col = mix(col, vec3(.058, .038, .021), fog * .65);
     gl_FragColor = vec4(col, 1.);
   }
@@ -90,17 +90,17 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     renderer.domElement.style.touchAction = 'none';
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(55, 1, .15, 180);
-    camera.position.set(0, 1.3, 12);
+    const camera = new THREE.PerspectiveCamera(65, 1, .15, 180);
+    camera.position.set(0, 3.8, 34);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 2, -12);
+    controls.target.set(0, 10, -28);
     controls.enableDamping = true;
     controls.dampingFactor = .055;
     controls.rotateSpeed = .32;
     controls.zoomSpeed = .52;
     controls.panSpeed = .46;
-    controls.minDistance = 3;
-    controls.maxDistance = 26;
+    controls.minDistance = 8;
+    controls.maxDistance = 68;
     controls.minPolarAngle = Math.PI * .40;
     controls.maxPolarAngle = Math.PI * .54;
     controls.minAzimuthAngle = -.30;
@@ -140,12 +140,12 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     // Architecture surrounds the photographs in one continuous world, rather
     // than projecting a perspective illustration onto a second room.
     scene.background = new THREE.Color('#35271a');
-    scene.fog = new THREE.FogExp2('#35271a', .009);
+    scene.fog = new THREE.FogExp2('#35271a', .003);
 
     const stone = new THREE.MeshStandardMaterial({ color: '#695443', roughness: .82, metalness: .12 });
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
     materials.add(stone); materials.add(bronze);
-    scene.add(new THREE.HemisphereLight('#d7b488', '#211c1b', 1.5));
+    scene.add(new THREE.HemisphereLight('#d7b488', '#4c3924', 2.2));
     const sunlight = new THREE.DirectionalLight('#ffe1a2', 3.2);
     sunlight.position.set(9, 12, -17); scene.add(sunlight);
     function box(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
@@ -193,7 +193,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
           scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(crown), 32, .10, 6, false), bronze)));
           for (const dz of [-2.5, -1.25, 0, 1.25, 2.5]) box(.32, 9.1, .10, bronze, 11.28, 4.6, z + dz);
           for (const y of [.1, 3, 6, 9.1]) box(.32, .12, 5.1, bronze, 11.26, y, z);
-          const glow = new THREE.PointLight('#ffcf81', 28, 19, 2);
+          const glow = new THREE.PointLight('#ffcf81', 155, 48, 2);
           glow.position.set(9.8, 6, z); scene.add(glow);
         } else {
           for (const dz of [-2.85, 2.85]) box(.25, 10.2, .10, bronze, -11.4, 4.3, z + dz);
@@ -254,6 +254,42 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       scene.add(arch);
     }
 
+    const candleMaterial = new THREE.MeshBasicMaterial({ color: '#ffd18a', toneMapped: false });
+    materials.add(candleMaterial);
+    const candleGeometry = new THREE.SphereGeometry(.055, 6, 8);
+    for (const side of [-1, 1]) {
+      for (let z = 18; z > -42; z -= 9) {
+        box(.45, .14, .7, bronze, side * 10.05, .9, z);
+        for (const dz of [-.24, 0, .24]) {
+          box(.045, .65, .045, bronze, side * 9.9, 1.2, z + dz);
+          const flame = keep(new THREE.Mesh(candleGeometry, candleMaterial));
+          flame.position.set(side * 9.9, 1.57, z + dz); flame.scale.y = 2.8; scene.add(flame);
+        }
+      }
+    }
+    // A continuous barrel vault spans the nave; ribs sit just below its surface.
+    const vaultVertices: number[] = [], vaultIndices: number[] = [];
+    for (let row = 0; row < 2; row++) {
+      for (let segment = 0; segment <= 64; segment++) {
+        const a = segment / 64 * Math.PI;
+        vaultVertices.push(Math.cos(a) * 10.65, 9.3 + Math.sin(a) * 4.62, row ? 21.8 : -42.8);
+      }
+    }
+    for (let i = 0; i < 64; i++) vaultIndices.push(i, i + 1, i + 65, i + 1, i + 66, i + 65);
+    const vaultGeometry = new THREE.BufferGeometry();
+    vaultGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vaultVertices, 3));
+    vaultGeometry.setIndex(vaultIndices); vaultGeometry.computeVertexNormals();
+    const vaultMaterial = new THREE.MeshStandardMaterial({ color: '#3b3027', side: THREE.DoubleSide, roughness: .76, metalness: .15 });
+    scene.add(keep(new THREE.Mesh(vaultGeometry, vaultMaterial)));
+    // Upper side galleries run behind the columns and reinforce the immense scale.
+    for (const side of [-1, 1]) {
+      box(1.7, .25, 64, stone, side * 11, 5.9, -10.5);
+      for (const y of [6.15, 7.35]) box(.10, .10, 64, bronze, side * 10.15, y, -10.5);
+      for (let z = -42; z < 22; z += .9) {
+        box(.07, 1.2, .07, bronze, side * 10.15, 6.75, z);
+      }
+    }
+
     // A real mirror below the scene reflects moving photographs and architecture.
     const mirror = new Reflector(new THREE.PlaneGeometry(29, 86), {
       color: new THREE.Color('#5b4632'), textureWidth: 768, textureHeight: 768, clipBias: .003,
@@ -305,6 +341,13 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const dust = keep(new THREE.Points(dustGeometry, new THREE.PointsMaterial({ map: glowMap, color: '#ffcb77', size: .06, transparent: true, opacity: .54, depthWrite: false, blending: THREE.AdditiveBlending })));
     scene.add(dust);
 
+    // Expand architecture as one coherent palace, anchored to the same floor.
+    // Photographs retain human-scale sizes so the hall reads as monumental.
+    const palace = new THREE.Group();
+    for (const object of [...scene.children]) palace.add(object);
+    palace.scale.copy(palaceScale); palace.position.y = 4 * (palaceScale.y - 1);
+    scene.add(palace);
+
     const cards: { mesh: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; angles: THREE.Vector3 }[] = [];
     const all: Entry[] = photos.length ? photos.slice(0, 60) : Array.from({ length: 44 }, (_, i) => ({ id: `sample-${i}`, kind: 'sample', data: {}, createdAt: 0 }));
     const empty = new THREE.DataTexture(new Uint8Array([89, 70, 49, 255]), 1, 1); empty.needsUpdate = true; textures.add(empty);
@@ -313,13 +356,14 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     all.forEach((photo, i) => {
       const phase = i * 2.39996;
       const foreground = i < 6;
-      const x = foreground ? [-4.3, 4.6, -2.6, 3.1, -5.2, 5.4][i] : Math.sin(phase) * (2.8 + i % 5 * 1.15);
-      const y = [5.6, 2.1, .4, 7.0, 3.6, -.7, 6.2, 1.3, 4.4, 8.4][i % 10] + Math.sin(i * 1.3) * .5;
-      const z = foreground ? [7.4, 6.4, 2.4, 3.5, -1.2, -.4][i] : 1 - Math.floor((i - 6) / 6) * 5.1 + Math.cos(phase) * 1.6;
+      const rawX = foreground ? [-4.3, 4.6, -2.6, 3.1, -5.2, 5.4][i] : Math.sin(phase) * (2.8 + i % 5 * 1.15);
+      const rawY = [5.6, 2.1, .4, 7.0, 3.6, -.7, 6.2, 1.3, 4.4, 8.4][i % 10] + Math.sin(i * 1.3) * .5;
+      const rawZ = foreground ? [7.4, 6.4, 2.4, 3.5, -1.2, -.4][i] : 1 - Math.floor((i - 6) / 6) * 5.1 + Math.cos(phase) * 1.6;
+      const x = rawX * 2.05, y = (rawY + 1) * 1.65 + 1.5, z = rawZ * 2.2 - 3;
       const pivot = new THREE.Group(); pivot.position.set(x, y, z);
       const angles = new THREE.Vector3([.09, -.16, .22, -.08][i % 4], [-.35, .42, -.67, .3, 2.7, 1.34, -2.5, .65, -1.12, .18][i % 10], (i % 5 - 2) * .045);
       pivot.rotation.set(angles.x, angles.y, angles.z);
-      const width = foreground ? 1.75 : 1.25 + i % 4 * .16, height = width * (i % 6 === 2 ? .83 : 1.25);
+      const width = foreground ? 2.1 : 1.55 + i % 4 * .2, height = width * (i % 6 === 2 ? .83 : 1.25);
       const plane = new THREE.PlaneGeometry(width, height, 24, 30); plane.translate(0, -height / 2, 0);
       const tile = photo.kind === 'sample' ? new THREE.Vector2(1 / 3, 1 / 2) : new THREE.Vector2(1, 1);
       const index = i % 6;
@@ -332,7 +376,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const mesh = keep(new THREE.Mesh(plane, material));
       mesh.userData.photo = photo.kind === 'sample' ? null : photo;
       pivot.add(mesh); scene.add(pivot); cards.push({ mesh, pivot, material, phase, angles });
-      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 16, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
+      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 32, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
       scene.add(string);
       const clip = keep(new THREE.Mesh(new THREE.BoxGeometry(.055, .13, .055), bronze)); clip.position.set(0, -.02, .025); clip.rotation.z = .14; pivot.add(clip);
       if (photo.kind === 'sample') {
