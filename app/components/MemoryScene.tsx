@@ -99,9 +99,12 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     controls.zoomSpeed = .52;
     controls.panSpeed = .46;
     controls.minDistance = 3;
-    controls.maxDistance = 37;
-    controls.minPolarAngle = Math.PI * .21;
-    controls.maxPolarAngle = Math.PI * .72;
+    controls.maxDistance = 26;
+    controls.minPolarAngle = Math.PI * .40;
+    controls.maxPolarAngle = Math.PI * .54;
+    controls.minAzimuthAngle = -.30;
+    controls.maxAzimuthAngle = .30;
+    controls.screenSpacePanning = false;
     controls.touches.ONE = THREE.TOUCH.ROTATE;
     controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     controls.update();
@@ -133,21 +136,12 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       }, undefined, () => { if (!disposed) setFailed(v => v + 1); });
     };
 
-    // The commissioned hall artwork supplies architectural detail. All paper,
-    // suspension, reflected images, light shafts and interaction remain 3D.
-    load('/art/memory-hall.png', texture => {
-      scene.background = texture;
-      texture.mapping = THREE.EquirectangularReflectionMapping;
-      scene.backgroundRotation.y = Math.PI / 2;
-      const backdrop = keep(new THREE.Mesh(
-        new THREE.PlaneGeometry(112, 56),
-        new THREE.MeshBasicMaterial({ map: texture, color: '#b9a48a', toneMapped: false })
-      ));
-      backdrop.position.set(0, 7, -49);
-      scene.add(backdrop);
-    });
+    // Architecture surrounds the photographs in one continuous world, rather
+    // than projecting a perspective illustration onto a second room.
+    scene.background = new THREE.Color('#35271a');
+    scene.fog = new THREE.FogExp2('#35271a', .009);
 
-    const stone = new THREE.MeshStandardMaterial({ color: '#30251d', roughness: .82, metalness: .12 });
+    const stone = new THREE.MeshStandardMaterial({ color: '#695443', roughness: .82, metalness: .12 });
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
     materials.add(stone); materials.add(bronze);
     scene.add(new THREE.HemisphereLight('#d7b488', '#211c1b', 1.5));
@@ -157,12 +151,69 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const mesh = keep(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat));
       mesh.position.set(x, y, z); scene.add(mesh); return mesh;
     }
+    const plaster = new THREE.MeshStandardMaterial({ color: '#544435', roughness: .9 });
+    const inset = new THREE.MeshStandardMaterial({ color: '#2a241f', roughness: .72 });
+    const glass = new THREE.MeshBasicMaterial({ color: '#ffe5ae', toneMapped: false });
+    materials.add(plaster); materials.add(inset); materials.add(glass);
+    const cameraMin = new THREE.Vector3(-8, -.5, -28);
+    const cameraMax = new THREE.Vector3(8, 9, 18);
+    const targetMin = new THREE.Vector3(-2, 1, -24);
+    const targetMax = new THREE.Vector3(2, 4, -8);
+    // Closed interior: floor -4, side walls +/-12, end walls -43 / 22.
+    box(.6, 18, 66, plaster, -12, 5, -10);
+    box(.6, 18, 66, plaster, 12, 5, -10);
+    box(24, 18, .6, plaster, 0, 5, -43);
+    box(24, 18, .6, plaster, 0, 5, 22);
+    box(24, .5, 66, plaster, 0, 14, -10);
+    for (const side of [-1, 1]) {
+      for (const y of [-3.6, -.8, 9.3, 13.4]) box(.25, .14, 65, bronze, side * 11.6, y, -10);
+      for (let bay = 0; bay < 6; bay++) {
+        const z = 16 - bay * 9;
+        box(.16, 10, 5.7, inset, side * 11.58, 4.3, z);
+        // Tall luminous panes sit in the right wall, with real mullions.
+        if (side === 1) {
+          const windowShape = new THREE.Shape();
+          windowShape.moveTo(-2.35, .25); windowShape.lineTo(2.35, .25);
+          windowShape.lineTo(2.35, 7.2); windowShape.absarc(0, 7.2, 2.35, 0, Math.PI, false);
+          windowShape.lineTo(-2.35, .25);
+          const pane = keep(new THREE.Mesh(new THREE.ShapeGeometry(windowShape), glass));
+          pane.rotation.y = -Math.PI / 2; pane.position.set(11.45, 0, z); scene.add(pane);
+          const crown = Array.from({ length: 33 }, (_, i) => {
+            const a = i / 32 * Math.PI;
+            return new THREE.Vector3(11.26, 7.2 + Math.sin(a) * 2.5, z + Math.cos(a) * 2.5);
+          });
+          scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(crown), 32, .10, 6, false), bronze)));
+          for (const dz of [-2.5, -1.25, 0, 1.25, 2.5]) box(.32, 9.1, .10, bronze, 11.28, 4.6, z + dz);
+          for (const y of [.1, 3, 6, 9.1]) box(.32, .12, 5.1, bronze, 11.26, y, z);
+          const glow = new THREE.PointLight('#ffcf81', 28, 19, 2);
+          glow.position.set(9.8, 6, z); scene.add(glow);
+        } else {
+          for (const dz of [-2.85, 2.85]) box(.25, 10.2, .10, bronze, -11.4, 4.3, z + dz);
+          for (const y of [-.8, 9.4]) box(.25, .10, 5.8, bronze, -11.4, y, z);
+        }
+      }
+    }
+    // Gilded coffers tie the ceiling to the same columns and floor.
+    for (let z = 18; z > -43; z -= 4.5) {
+      box(23.5, .16, .12, bronze, 0, 13.65, z);
+      for (const x of [-8, -4, 0, 4, 8]) box(.10, .16, 4.5, bronze, x, 13.65, z - 2.25);
+    }
+    for (const x of [-8, -4, 0, 4, 8]) {
+      box(3.5, 11, .2, inset, x, 4, -42.55);
+      for (const dx of [-1.75, 1.75]) box(.09, 11, .3, bronze, x + dx, 4, -42.35);
+      for (const y of [-1.5, 9.5]) box(3.6, .09, .3, bronze, x, y, -42.35);
+    }
     // Repeating carved pilasters and arch ribs give camera movement real parallax.
-    for (let i = 0; i < 5; i++) {
-      const z = 7 - i * 9;
+    for (let i = 0; i < 7; i++) {
+      const z = 20 - i * 9;
       for (const side of [-1, 1]) {
         const x = side * 10.7;
-        box(.95, 16, 1.1, stone, x, 3.8, z);
+        const column = keep(new THREE.Mesh(new THREE.CylinderGeometry(.48, .62, 13.2, 16), stone));
+        column.position.set(x, 2.7, z); scene.add(column);
+        for (const y of [-3.5, -3.1, 8.9, 9.2]) {
+          const ring = keep(new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .16, 24), bronze));
+          ring.position.set(x, y, z); scene.add(ring);
+        }
         box(1.55, .42, 1.65, bronze, x, -3.2, z);
         box(1.4, .2, 1.5, bronze, x, 9.3, z);
         for (const offset of [-.28, 0, .28]) box(.045, 11.8, .065, bronze, x + offset, 2.7, z + .58);
@@ -303,7 +354,13 @@ export default function MemoryScene({ photos, onSelect }: Props) {
             card.angles.z + Math.sin(time * .5 + card.phase) * .025);
         }
       }
-      controls.update(); composer.render(); frame = requestAnimationFrame(tick);
+      controls.update();
+      // Clamp both the orbit centre and eye, including accumulated pan/damping.
+      // Keeping the eye above the reflector avoids its undefined underside view.
+      controls.target.clamp(targetMin, targetMax);
+      camera.position.clamp(cameraMin, cameraMax);
+      camera.lookAt(controls.target);
+      composer.render(); frame = requestAnimationFrame(tick);
     }
     tick();
     return () => {
