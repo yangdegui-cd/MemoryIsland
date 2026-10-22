@@ -142,26 +142,26 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     scene.background = new THREE.Color('#35271a');
     scene.fog = new THREE.FogExp2('#35271a', .003);
 
-    const stone = new THREE.MeshStandardMaterial({ color: '#695443', roughness: .82, metalness: .12 });
+    const stone = new THREE.MeshStandardMaterial({ color: '#b8a68a', roughness: .82, metalness: .12 });
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
     stone.onBeforeCompile = shader => {
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvStonePosition = position;');
       shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <color_fragment>', `#include <color_fragment>
         float vein = sin(vStonePosition.y * 11. + sin(vStonePosition.x * 17. + vStonePosition.z * 9.) * 2. + sin(vStonePosition.y * 3.) * 4.);
         float line = pow(abs(vein), 28.);
-        diffuseColor.rgb *= .64 + line * .42;
+        diffuseColor.rgb *= .88 + line * .12;
       `);
     };
     materials.add(stone); materials.add(bronze);
-    scene.add(new THREE.HemisphereLight('#d7b488', '#4c3924', 2.2));
+    scene.add(new THREE.HemisphereLight('#d7b488', '#81715c', 3.0));
     const sunlight = new THREE.DirectionalLight('#ffe1a2', 3.2);
     sunlight.position.set(9, 12, -17); scene.add(sunlight);
     function box(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
       const mesh = keep(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat));
       mesh.position.set(x, y, z); scene.add(mesh); return mesh;
     }
-    const plaster = new THREE.MeshStandardMaterial({ color: '#544435', roughness: .9 });
-    const inset = new THREE.MeshStandardMaterial({ color: '#2a241f', roughness: .72 });
+    const plaster = new THREE.MeshStandardMaterial({ color: '#857561', roughness: .9 });
+    const inset = new THREE.MeshStandardMaterial({ color: '#554a40', roughness: .72 });
     const glass = new THREE.MeshBasicMaterial({ color: '#ffe5ae', toneMapped: false });
     materials.add(plaster); materials.add(inset); materials.add(glass);
     // A continuous inward-facing box closes all six sides, including the floor
@@ -199,8 +199,8 @@ export default function MemoryScene({ photos, onSelect }: Props) {
             return new THREE.Vector3(11.26, 7.2 + Math.sin(a) * 2.5, z + Math.cos(a) * 2.5);
           });
           scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(crown), 32, .10, 6, false), bronze)));
-          for (const dz of [-2.5, -1.25, 0, 1.25, 2.5]) box(.32, 9.1, .10, bronze, 11.28, 4.6, z + dz);
-          for (const y of [.1, 3, 6, 9.1]) box(.32, .12, 5.1, bronze, 11.26, y, z);
+          for (const dz of [-2.5, 0, 2.5]) box(.32, 9.1, .10, bronze, 11.28, 4.6, z + dz);
+          for (const y of [.1, 6, 9.1]) box(.32, .12, 5.1, bronze, 11.26, y, z);
           const glow = new THREE.PointLight('#ffcf81', 155, 48, 2);
           glow.position.set(9.8, 6, z); scene.add(glow);
         } else {
@@ -313,17 +313,54 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const vaultGeometry = new THREE.BufferGeometry();
     vaultGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vaultVertices, 3));
     vaultGeometry.setIndex(vaultIndices); vaultGeometry.computeVertexNormals();
-    const vaultMaterial = new THREE.MeshStandardMaterial({ color: '#3b3027', side: THREE.DoubleSide, roughness: .76, metalness: .15 });
+    const vaultMaterial = new THREE.MeshStandardMaterial({ color: '#71604c', side: THREE.DoubleSide, roughness: .76, metalness: .15 });
     scene.add(keep(new THREE.Mesh(vaultGeometry, vaultMaterial)));
-    // Upper side galleries run behind the columns and reinforce the immense scale.
+    // A layered ceremonial doorway anchors the far end of the hall.
+    const doorShape = new THREE.Shape();
+    doorShape.moveTo(-2,-2.5); doorShape.lineTo(2,-2.5); doorShape.lineTo(2,5);
+    doorShape.absarc(0,5,2,0,Math.PI,false); doorShape.lineTo(-2,-2.5);
+    const farDoor = keep(new THREE.Mesh(new THREE.ShapeGeometry(doorShape), glass));
+    farDoor.position.z = -42.1; scene.add(farDoor);
+    for(let frame=0;frame<3;frame++) {
+      const r = 2.2 + frame * .35;
+      const points = [new THREE.Vector3(-r,-2.5,-41.9+frame*.1), ...Array.from({length:33},(_,i)=> {
+        const a=Math.PI-i/32*Math.PI;
+        return new THREE.Vector3(Math.cos(a)*r,5+Math.sin(a)*r,-41.9+frame*.1);
+      }),new THREE.Vector3(r,-2.5,-41.9+frame*.1)];
+      scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, false, 'centripetal'),64,.12,8,false),frame===1?stone:bronze)));
+    }
+    for(let step=0;step<7;step++) box(8-step*.35,.2,3.5-step*.4,stone,0,-3.85+step*.2,-40.5-step*.15);
+    // Carved stone balustrades, with vase-shaped spindles and broad handrails.
+    const profile = [[.22,0],[.22,.10],[.14,.16],[.11,.28],[.20,.48],[.21,.62],[.12,.85],[.12,.96],[.23,1.04],[.23,1.12]].map(([r,y]) => new THREE.Vector2(r,y));
+    const balusterGeometry = new THREE.LatheGeometry(profile, 16);
+    const balusters = keep(new THREE.InstancedMesh(balusterGeometry, stone, 100));
+    const balusterTransform = new THREE.Object3D(); let bi = 0;
     for (const side of [-1, 1]) {
       box(2.7, .38, 64, stone, side * 10.55, 5.9, -10.5);
-      for (const y of [6.15, 7.35]) box(.10, .10, 64, bronze, side * 9.17, y, -10.5);
-      for (let z = -42; z < 22; z += .9) {
-        box(.07, 1.2, .07, bronze, side * 9.17, 6.75, z);
+      for (const y of [6.12, 7.4]) box(.52, .20, 64, stone, side * 9.17, y, -10.5);
+      box(.56, .055, 64, bronze, side * 9.17, 7.52, -10.5);
+      for (let i=0;i<50;i++) {
+        balusterTransform.position.set(side * 9.17, 6.22, -42 + i * 1.28);
+        balusterTransform.updateMatrix(); balusters.setMatrixAt(bi++, balusterTransform.matrix);
+      }
+      // Broad arcade openings support the upper gallery; thick voussoirs replace bars.
+      for (let bay=0;bay<7;bay++) {
+        const z = 17 - bay * 9;
+        for (const dz of [-4.15,4.15]) {
+          box(.95, 6.3, .75, stone, side * 9.45, -.85, z+dz);
+          box(1.2,.26,1.1,bronze,side * 9.45,2.2,z+dz);
+        }
+        const archPoints = Array.from({length:49},(_,i)=> {
+          const a = i/48*Math.PI;
+          return new THREE.Vector3(side*9.45,2.2+Math.sin(a)*3.15,z+Math.cos(a)*4.15);
+        });
+        scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(archPoints),48,.30,8,false),stone)));
+        const trimPoints = archPoints.map(p=>new THREE.Vector3(p.x-side*.34,p.y+.08,p.z));
+        scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trimPoints),48,.055,6,false),bronze)));
+        box(.9,.58,.65,bronze,side*9.45,5.3,z);
       }
     }
-
+    scene.add(balusters);
     // Two flights lead from the ground floor into the upper galleries.
     for (const side of [-1, 1]) {
       for (let step = 0; step < 22; step++) {
@@ -334,7 +371,8 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const handrail = [new THREE.Vector3(side * 8.8, -2.7, 15.5), new THREE.Vector3(side * 8.8, 7, -.5)];
       scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(handrail), 16, .065, 6, false), bronze)));
       for (let post = 0; post < 12; post++) {
-        box(.06, 1.2, .06, bronze, side * 8.8, -3.3 + post * 9.7 / 11, 15.5 - post * 16 / 11);
+        const stairBaluster = keep(new THREE.Mesh(balusterGeometry, stone));
+        stairBaluster.position.set(side * 8.8, -3.9 + post * 9.7 / 11, 15.5 - post * 16 / 11); scene.add(stairBaluster);
       }
     }
     // A real mirror below the scene reflects moving photographs and architecture.
@@ -350,7 +388,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
         float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
         float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.13+7.4;a*=.5;}return v;}
-        void main(){vec2 p=vUv*vec2(22.,64.);float seams=step(.994,fract(p.x*.5))+step(.994,fract(p.y*.5));float vein=1.-smoothstep(.003,.019,abs(fbm(p*1.8)-.48));vec3 col=mix(vec3(.023,.018,.014),vec3(.14,.1,.052),vein*.48+seams*.14);gl_FragColor=vec4(col,.72);}`,
+        void main(){vec2 p=vUv*vec2(22.,64.);float seams=step(.994,fract(p.x*.5))+step(.994,fract(p.y*.5));float vein=1.-smoothstep(.003,.019,abs(fbm(p*1.8)-.48));vec3 col=mix(vec3(.023,.018,.014),vec3(.14,.1,.052),vein*.12+seams*.10);gl_FragColor=vec4(col,.72);}`,
 
     })));
     floor.rotation.x = -Math.PI / 2; floor.position.copy(mirror.position).y += .012; scene.add(floor);
@@ -425,7 +463,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const mesh = keep(new THREE.Mesh(plane, material));
       mesh.userData.photo = photo.kind === 'sample' ? null : photo;
       pivot.add(mesh); scene.add(pivot); cards.push({ mesh, pivot, material, phase, angles });
-      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 55, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
+      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 48, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
       scene.add(string);
       const clip = keep(new THREE.Mesh(new THREE.BoxGeometry(.055, .13, .055), bronze)); clip.position.set(0, -.02, .025); clip.rotation.z = .14; pivot.add(clip);
       if (photo.kind === 'sample') {

@@ -6,24 +6,18 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
   const [leaving,setLeaving]=useState(false);
   const canvas=useRef<HTMLCanvasElement>(null);
   const skip=useRef<HTMLButtonElement>(null);
-  const [reduced,setReduced]=useState(false);
   const dismiss=()=>{setLeaving(true);};
   useEffect(()=>{
-    const media=matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(media.matches);
-    if(media.matches){setVisible(false);return;}
-    try{if(sessionStorage.getItem('island-intro-seen')){setVisible(false);return;}}catch{}
     const timer=setTimeout(()=>{setLeaving(true);},6000);
     return ()=>clearTimeout(timer);
   },[]);
   useEffect(()=>{
     if(!leaving)return;
-    try{sessionStorage.setItem('island-intro-seen','1');}catch{}
     const timer=setTimeout(()=>{setVisible(false);document.querySelector<HTMLAnchorElement>('.island-wordmark')?.focus({preventScroll:true});},800);
     return ()=>clearTimeout(timer);
   },[leaving]);
   useEffect(()=>{
-    if(!visible||reduced)return;
+    if(!visible)return;
     const element=canvas.current;
     const ctx=element?.getContext('2d');
     if(!element||!ctx)return;
@@ -101,7 +95,7 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
     };
     frame=requestAnimationFrame(draw);
     return ()=>{cancelAnimationFrame(frame);removeEventListener('resize',resize);};
-  },[visible,reduced]);
+  },[visible]);
   useEffect(()=>{
     if(!visible)return;
     const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setLeaving(true);}};
