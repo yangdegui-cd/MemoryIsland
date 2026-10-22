@@ -1,3 +1,42 @@
 "use client";
-import {useState,useEffect} from 'react';import {BookOpen,Sprout,Sparkles,Plus,ArrowUpRight,ArrowRight} from 'lucide-react';import {useRecords,Status,moods,faces} from './components/data';import Island from './components/Island';
-export default function Home(){const s=useRecords();const[localDate,setLocalDate]=useState('');useEffect(()=>setLocalDate(new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'})),[]);const diary=s.rows.filter(r=>r.kind==='diary'),habits=s.rows.filter(r=>r.kind==='habit'),wishes=s.rows.filter(r=>r.kind==='wish'&&!r.data.done);return <><div className="home-heading"><div><div className="eyebrow">YOUR EVERYDAY, A LITTLE MORE LOVELY</div><h1>嗨，欢迎回到你的小岛 <span className="wave">✺</span></h1><p>今天也有一些小事，值得被记住。</p></div><span className="date-chip">{localDate}</span></div><section className="hero"><div className="hero-copy"><span className="tag">✦ 生活的主角，一直是你</span><h2>把普通的日子，<br/>过成自己的<span>小美好。</span></h2><p>收藏一段心情，种下一点坚持。<br/>在这里，慢慢记录，轻轻生活。</p><a className="button coral" href="/diary"><Plus size={18}/>写下今天<ArrowUpRight size={16}/></a></div><Island/><span className="hero-caption">a little place for your everyday 🌱</span></section><Status state={s}/><div className="stats">{[[BookOpen,'写过的日子',diary.length,'篇手记','/diary','peach'],[Sprout,'正在养成',habits.length,'个好习惯','/habits','sage'],[Sparkles,'期待的小美好',wishes.length,'个心愿','/wishes','butter']].map(([Icon,label,count,unit,url,color]:any)=><a href={url} key={url}><span className={'stat-icon '+color}><Icon/></span><div><small>{label}</small><strong>{count}<em>{unit}</em></strong></div><ArrowUpRight/></a>)}</div><div className="dashboard-grid"><section className="panel"><div className="section-head"><h3>今天，心情是什么颜色？</h3><span className="micro-label">DAILY MOOD</span></div><p className="muted small">不管是哪种心情，都值得被温柔接住。</p><div className="mood-row">{moods.map((v,i)=><a key={v} href={'/mood?feeling='+encodeURIComponent(v)}><span>{faces[i]}</span><small>{v}</small></a>)}</div><a className="subtle-link" href="/mood">看看我的心情日历 <ArrowRight size={15}/></a></section><section className="panel play-panel"><span className="micro-label">LET A LITTLE LUCK IN</span><div className="game-art">✺</div><h3>让相处，多一点新鲜感。</h3><p className="muted small">26 个子类型，一次旋转，遇见下一个话题。</p><a href="/wheel" className="button outline">转动话题轮盘 <ArrowUpRight size={16}/></a></section></div><div className="section-head recent-heading"><h3>最近的生活碎片 <span className="muted">/ MOMENTS</span></h3><a className="subtle-link" href="/diary">全部手记 <ArrowRight size={15}/></a></div><div className="recent-grid">{diary.length?diary.slice(0,3).map(r=><a className="moment" key={r.id} href="/diary"><span className="moment-label">{r.data.mood} · {r.data.date}</span><h3>{r.data.title}</h3><p>{r.data.body.slice(0,90)}</p><span className="subtle-link">打开这段回忆 ↗</span></a>):<div className="empty wide"><BookOpen/><h3>故事，从今天开始</h3><p>记下一顿好吃的饭，或一场落日吧。</p><a className="text-button" href="/diary">写下第一篇 →</a></div>}</div></>}
+
+import {useEffect, useState} from 'react';
+import {Landmark, Waves, Gamepad2, Cloud, Sprout} from 'lucide-react';
+import './island-home.css';
+import IslandIntro from './components/IslandIntro';
+
+const copy = {
+  zh: {brand:'日常小岛', title:'欢迎回到你的小岛', hint:'点击一处，开始探索', palace:'记忆宫殿', river:'时光长河', game:'游戏屋', sky:'心情天空'},
+  en: {brand:'Daily Island', title:'Welcome to your little island', hint:'Pick a place. Begin exploring.', palace:'Memory Palace', river:'River of Time', game:'Game House', sky:'Mood Sky'},
+};
+
+export default function Home(){
+  const [language,setLanguage]=useState<'zh'|'en'>('zh');
+  useEffect(()=>{try{const saved=localStorage.getItem('island-language');if(saved==='en'||saved==='zh')setLanguage(saved);}catch{}},[]);
+  useEffect(()=>{document.documentElement.lang=language==='zh'?'zh-CN':'en';},[language]);
+  const changeLanguage=(next:'zh'|'en')=>{setLanguage(next);try{localStorage.setItem('island-language',next);}catch{}};
+  const t=copy[language];
+  const destinations=[
+    {name:t.palace,href:'/album',className:'palace',Icon:Landmark},
+    {name:t.river,href:'/diary',className:'river',Icon:Waves},
+    {name:t.game,href:'/wheel',className:'game',Icon:Gamepad2},
+    {name:t.sky,href:'/mood',className:'sky',Icon:Cloud},
+  ];
+  return <div className="island-home" data-language={language}>
+    <IslandIntro language={language}/>
+    <div className="island-art" aria-hidden="true"/>
+    <header className="island-header">
+      <a href="/" className="island-wordmark"><Sprout aria-hidden="true"/>{t.brand}</a>
+      <div className="island-language" role="group" aria-label={language==='zh'?'界面语言':'Interface language'}>
+        <button type="button" lang="zh-CN" aria-pressed={language==='zh'} onClick={()=>changeLanguage('zh')}>中文</button>
+        <button type="button" lang="en" aria-pressed={language==='en'} onClick={()=>changeLanguage('en')}>EN</button>
+      </div>
+    </header>
+    <h1 className="island-welcome">{t.title}</h1>
+    <nav className="island-destinations" aria-label={language==='zh'?'探索小岛':'Explore the island'}>
+      {destinations.map(({name,href,className,Icon})=><a key={className} href={href} className={'island-destination '+className}><Icon size={21} aria-hidden="true"/><span>{name}</span><i aria-hidden="true"/></a>)}
+    </nav>
+    <div className="island-fireflies" aria-hidden="true">{Array.from({length:12},(_,i)=><i key={i} style={{left:`${8+(i*23)%85}%`,top:`${30+(i*17)%58}%`,animationDelay:`${i*.43}s`}}/>)}</div>
+    <p className="island-hint">{t.hint}</p>
+  </div>;
+}
