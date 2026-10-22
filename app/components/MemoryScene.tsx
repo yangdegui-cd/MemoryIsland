@@ -89,7 +89,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     renderer.domElement.style.touchAction = 'none';
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(65, 1, .15, 180);
+    const camera = new THREE.PerspectiveCamera(65, 1, .15, 750);
     camera.position.set(0, 1.2, 27);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 17, -28);
@@ -141,34 +141,32 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     scene.background = new THREE.Color('#35271a');
     scene.fog = new THREE.FogExp2('#35271a', .003);
 
-    // A single six-sided box. The selected artwork is projected onto its
-    // interior faces using one continuous panoramic UV field (no wall seams).
+    // Six separately authored flat surface textures, mapped directly onto a
+    // large enclosed room. No spherical projection of a perspective painting.
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
     materials.add(bronze);
     scene.add(new THREE.HemisphereLight('#ffe2af', '#493623', 2));
-    const roomMaterial = new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      uniforms: { uPalace: { value: null }, uReady: { value: 0 } },
-      vertexShader: `varying vec3 vRoom; void main(){
-        vRoom = (modelMatrix * vec4(position,1.)).xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.);
-      }`,
-      fragmentShader: `uniform sampler2D uPalace; uniform float uReady; varying vec3 vRoom;
-        void main(){
-          vec3 ray = normalize(vRoom - vec3(0., 7., 18.));
-          vec2 uv = vec2(atan(ray.x, -ray.z) / 6.2831853 + .5, asin(clamp(ray.y,-1.,1.)) / 3.14159265 + .5);
-          vec3 color = texture2D(uPalace, uv).rgb;
-          gl_FragColor = vec4(mix(vec3(.12,.08,.04),color,uReady),1.);
-          #include <colorspace_fragment>
-        }`,
-    });
     const roomSize = palaceBounds.getSize(new THREE.Vector3());
-    const room = keep(new THREE.Mesh(new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z), roomMaterial));
+    const roomGeometry = new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z);
+    const uv = roomGeometry.attributes.uv;
+    // BoxGeometry order: right, left, ceiling, floor, back, front.
+    const faceTiles = [1, 3, 4, 5, 2, 0];
+    for(let face = 0; face < 6; face++) {
+      const tile = faceTiles[face], column = tile % 3, row = Math.floor(tile / 3);
+      for(let corner = 0; corner < 4; corner++) {
+        const vertex = face * 4 + corner;
+        const u = 1 - uv.getX(vertex), v = uv.getY(vertex);
+        // Inset samples prevent neighbouring atlas faces bleeding at their edges.
+        uv.setXY(vertex, (column + .003 + u * .994) / 3, (1 - row + .003 + v * .994) / 2);
+      }
+    }
+    const roomMaterial = new THREE.MeshBasicMaterial({side:THREE.BackSide,color:'#ffffff',toneMapped:false,fog:false});
+    const room = keep(new THREE.Mesh(roomGeometry,roomMaterial));
     room.position.copy(palaceBounds.getCenter(new THREE.Vector3())); scene.add(room);
-    load('/art/palace-reference.png', texture => {
-      texture.wrapS = THREE.RepeatWrapping;
-      roomMaterial.uniforms.uPalace.value = texture;
-      roomMaterial.uniforms.uReady.value = 1;
+    load('/art/palace-six-face-atlas-v1.png', texture => {
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.LinearFilter;
+      roomMaterial.map = texture; roomMaterial.needsUpdate = true;
     });
     const dustData = new Float32Array(260 * 3);
     for(let i=0;i<260;i++) {
@@ -211,7 +209,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const mesh = keep(new THREE.Mesh(plane, material));
       mesh.userData.photo = photo.kind === 'sample' ? null : photo;
       pivot.add(mesh); scene.add(pivot); cards.push({ mesh, pivot, material, phase, angles });
-      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 48, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
+      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, palaceBounds.max.y - 1, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
       scene.add(string);
       const clip = keep(new THREE.Mesh(new THREE.BoxGeometry(.055, .13, .055), bronze)); clip.position.set(0, -.02, .025); clip.rotation.z = .14; pivot.add(clip);
       if (photo.kind === 'sample') {

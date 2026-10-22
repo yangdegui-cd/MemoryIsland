@@ -7,11 +7,11 @@ export const roomBounds = new THREE.Box3(
 );
 export const palaceScale = new THREE.Vector3(3.1, 3.0, 2.4);
 export const palaceBounds = new THREE.Box3(
-  new THREE.Vector3(-37.2, -4, -103.2), new THREE.Vector3(37.2, 50, 52.8),
+  new THREE.Vector3(-180, -12, -180), new THREE.Vector3(180, 248, 180),
 );
-// Leave clearance for the near plane, columns and window frames.
-export const cameraBounds = palaceBounds.clone().expandByVector(new THREE.Vector3(-12, -2, -3));
-export const focusBounds = new THREE.Box3(new THREE.Vector3(-5, 5, -32), new THREE.Vector3(5, 22, -18));
+// Navigation stays in the central volume, well away from all texture surfaces.
+export const cameraBounds = new THREE.Box3(new THREE.Vector3(-60, -2, -80), new THREE.Vector3(60, 80, 80));
+export const focusBounds = new THREE.Box3(new THREE.Vector3(-12, 5, -40), new THREE.Vector3(12, 35, -10));
 
 export function containCamera(position: THREE.Vector3, target: THREE.Vector3) {
   const x = target.x, y = target.y, z = target.z;
