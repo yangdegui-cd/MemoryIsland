@@ -13,7 +13,7 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
     setReduced(media.matches);
     if(media.matches){setVisible(false);return;}
     try{if(sessionStorage.getItem('island-intro-seen')){setVisible(false);return;}}catch{}
-    const timer=setTimeout(()=>{setLeaving(true);},4200);
+    const timer=setTimeout(()=>{setLeaving(true);},6000);
     return ()=>clearTimeout(timer);
   },[]);
   useEffect(()=>{
@@ -30,12 +30,52 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
     let width=0,height=0,frame=0;
     const resize=()=>{width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio||1,2);element.width=width*dpr;element.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);};
     resize();addEventListener('resize',resize);
-    const particles=Array.from({length:width<700?260:650},()=>({angle:Math.random()*Math.PI*2,radius:.55+Math.random()*.65,size:.4+Math.random()*1.5,speed:.03+Math.random()*.04,offset:Math.random()*40,alpha:.2+Math.random()*.6}));
+    // Several narrow spiral arms form moving ribbons, rather than a sparse ring.
+    const particles=Array.from({length:width<700?2200:5600},(_,i)=>({
+      angle:Math.random()*Math.PI*2,
+      band:i%4,
+      spread:(Math.random()+Math.random()+Math.random()-1.5)*.075,
+      size:Math.random()<.025?2+Math.random()*2:.35+Math.random()*.9,
+      speed:.19+Math.random()*.11,
+      phase:Math.random()*Math.PI*2,
+      alpha:.25+Math.random()*.7,
+    }));
     const start=performance.now();
     const draw=(now:number)=>{
-      const seconds=(now-start)/1000;ctx.clearRect(0,0,width,height);
-      for(const p of particles){const angle=p.angle+seconds*p.speed;const rx=width*.47*p.radius,ry=height*.34*p.radius;const x=width*.5+Math.cos(angle)*rx;const y=height*.5+Math.sin(angle)*ry+Math.sin(angle*3+p.offset)*12;ctx.globalAlpha=p.alpha*(.65+Math.sin(seconds+p.offset)*.35);ctx.fillStyle='#efcf89';ctx.beginPath();ctx.arc(x,y,p.size,0,Math.PI*2);ctx.fill();}
-      ctx.globalAlpha=1;frame=requestAnimationFrame(draw);
+      const seconds=(now-start)/1000;
+      ctx.clearRect(0,0,width,height);
+      ctx.globalCompositeOperation='lighter';
+      const entrance=Math.min(1,seconds/1.25);
+      const release=Math.max(0,(seconds-4.7)/1.3);
+      const scale=1+(1-entrance)*.45+release*.9;
+      const unit=Math.max(width,height*1.1);
+      for(const p of particles){
+        const angle=p.angle+seconds*p.speed;
+        const radius=(.27+p.band*.045+p.spread+Math.sin(angle*2+p.band)*.035)*scale;
+        const orbitX=Math.cos(angle)*unit*radius;
+        const orbitY=Math.sin(angle)*height*radius*.82;
+        const x=width*.5+orbitX+orbitY*.36;
+        const y=height*.48+orbitY-orbitX*.19;
+        const depth=(Math.sin(angle)+1)/2;
+        const size=p.size*(.55+depth*.95);
+        ctx.globalAlpha=p.alpha*entrance*(1-release*.8)*(.55+.45*Math.sin(seconds*1.6+p.phase)**2);
+        ctx.strokeStyle=p.band%2?'#f5d994':'#c49b50';
+        ctx.lineWidth=size;
+        // Short tangent trails make the flow apparent even during the short intro.
+        const trail=(2+depth*6)*(1+release*2);
+        ctx.beginPath();ctx.moveTo(x,y);
+        ctx.lineTo(x-Math.sin(angle)*trail,y+Math.cos(angle)*trail*.48);
+        ctx.stroke();
+        if(p.size>2){
+          ctx.globalAlpha*=.3;
+          ctx.fillStyle='#e7bb64';
+          ctx.beginPath();ctx.arc(x,y,size*3.5,0,Math.PI*2);ctx.fill();
+          ctx.globalAlpha=p.alpha*entrance*(1-release);
+          ctx.fillStyle='#fff3cc';ctx.beginPath();ctx.arc(x,y,size,0,Math.PI*2);ctx.fill();
+        }
+      }
+      ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+      frame=requestAnimationFrame(draw);
     };
     frame=requestAnimationFrame(draw);
     return ()=>{cancelAnimationFrame(frame);removeEventListener('resize',resize);};
