@@ -11,3 +11,9 @@ W / ↑ 前进，S / ↓ 后退，A / ← 左移，D / → 右移；默认速度
 技术：Three.js WebGL、实时传送门着色器、Bloom、Blender原创骨骼角色、独立远景素材。角色源文件 `design/river-traveler.blend`，生成脚本 `tools/blender/build_traveler.py`，运行时资产 `public/models/river-traveler.glb`；通过GLTFLoader和AnimationMixer播放Idle/Run动画，原地切换，不驱动角色位置。模型读取失败时明确提示并显示简化替身。WebGL不可用时显示明确提示。
 
 道路和门框也在Blender建模，见 `tools/blender/build_environment.py` 与 `design/river-architecture.blend`。运行时加载 `public/models/river-architecture.glb`；道路、左右栏杆、地面纹章使用InstancedMesh复用。路面有烘焙大理石纹理、倒角石板、间隔罗盘镶嵌，栏杆采用回转雕刻石柱，门框包含槽柱、金叶、拱边和阶梯基座。启用天空环境反射与实时软阴影，发光门含实时星尘和局部光源。模型加载完成前展示进入场景状态，避免简化替身闪现。
+
+## 路旁亭阁版
+
+传送入口沿路布置，门面与弧形道路当前切线平行，正面朝向道路；旋转角使用道路切线角减去侧别乘以90度。亭阁包含四根独立石柱、四坡曲面檐顶、分层檐口、藻井、内凹拱门和与路肩衔接的浅台阶。门内光幕和星尘缩入亭阁后部。日期门间距仍为18单位，入口前方保留11单位的初始纵向偏移。
+
+路面改为大规格细缝石板、低对比度细纹大理石与微法线贴图；栏杆采用40段回转曲面、石质顶帽和细金边，地面罗盘间隔六段出现。后处理使用最高4倍MSAA，改善细线与远景边缘。

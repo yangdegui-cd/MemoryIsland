@@ -11,6 +11,7 @@ import { offsetDate, type RiverChat } from './timeline';
 
 type Props = { anchor: string; chats: RiverChat[]; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
 const SPACING = 18;
+const PORTAL_OFFSET = 11;
 const curve = (z: number) => .0038 * (z - 4) ** 2;
 const stone = '#e5dec9';
 
@@ -43,7 +44,8 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
     const camera = new T.PerspectiveCamera(58, 1, .1, 600);
     camera.position.set(.4, 3.0, 9.8);
     camera.lookAt(2, 2, -27);
-    const composer = new EffectComposer(renderer);
+    const renderTarget = new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: Math.min(4, renderer.capabilities.maxSamples) });
+    const composer = new EffectComposer(renderer, renderTarget);
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new T.Vector2(1, 1), .16, .32, 1.5);
     composer.addPass(bloom);
@@ -195,11 +197,11 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
       const arch = new T.Shape(); arch.moveTo(-1.42, 4.15); arch.quadraticCurveTo(-1.4, 5.25, 0, 5.9); arch.quadraticCurveTo(1.4, 5.25, 1.42, 4.15); arch.lineTo(1.1, 4.15); arch.quadraticCurveTo(1.05, 4.95, 0, 5.5); arch.quadraticCurveTo(-1.05, 4.95, -1.1, 4.15); arch.closePath();
       mesh(new T.ExtrudeGeometry(arch, { depth: .4, bevelEnabled: true, bevelSize: .07, bevelThickness: .05, bevelSegments: 2, steps: 1 }), marble, group, 0, 0, -.2);
       const surface = new T.Shape(); surface.moveTo(-1.01, .2); surface.lineTo(-1.01, 4.15); surface.quadraticCurveTo(-.95, 4.9, 0, 5.35); surface.quadraticCurveTo(.95, 4.9, 1.01, 4.15); surface.lineTo(1.01, .2); surface.closePath();
-      const pm = portalShader.clone(); materials.push(pm); const light = mesh(new T.ShapeGeometry(surface), pm, group);
+      const pm = portalShader.clone(); materials.push(pm); const light = mesh(new T.ShapeGeometry(surface), pm, group); light.scale.y = .8; light.position.z = -.78;
       const gems = [mesh(new T.OctahedronGeometry(.24), glowMat, group, 0, 5.8, .3)]; gems[0].scale.y = 1.6;
       const lm = new T.SpriteMaterial({ transparent: true, depthTest: false }); materials.push(lm);
       const label = new T.Sprite(lm); label.position.set(0, 7.3, 0); label.scale.set(5.6, 1.05, 1); group.add(label);
-      const aura = new T.Points(auraGeometry, auraMaterial); group.add(aura);
+      const aura = new T.Points(auraGeometry, auraMaterial); aura.scale.y = .8; aura.position.z = -.62; group.add(aura);
       const glowLight = new T.PointLight('#91deed', 7, 11, 2); glowLight.position.set(0, 2, .5); group.add(glowLight);
       portals.push({ root: group, material: pm, label, labelMaterial: lm, light, gems, aura, glowLight, index: Number.NaN });
     }
@@ -224,7 +226,7 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
           object.castShadow = true; object.receiveShadow = true;
           geometries.push(object.geometry);
           const mats = Array.isArray(object.material) ? object.material : [object.material]; materials.push(...mats);
-          for (const mat of mats) if (mat instanceof T.MeshStandardMaterial && /ivory marble/i.test(mat.name)) { mat.roughness = .19; mat.metalness = .13; }
+          for (const mat of mats) if (mat instanceof T.MeshStandardMaterial && /ivory marble/i.test(mat.name)) { mat.roughness = .25; mat.metalness = .06; }
           for (const mat of mats) for (const value of Object.values(mat)) if (value instanceof T.Texture) textures.push(value);
         }
       });
@@ -338,8 +340,8 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
         rail.position.set(curve(z), 0, z); rail.rotation.y = Math.atan(.0076 * (z - 4));
         for (const child of rail.children) {
           const side = child.position.x > 0 ? 1 : -1;
-          const closestIndex = Math.round((travel + 4 - z - 6) / SPACING);
-          const portalZ = 4 - (closestIndex * SPACING - travel + 6);
+          const closestIndex = Math.round((travel + 4 - z - PORTAL_OFFSET) / SPACING);
+          const portalZ = 4 - (closestIndex * SPACING - travel + PORTAL_OFFSET);
           const portalSide = closestIndex % 2 === 0 ? 1 : -1;
           child.visible = !(side === portalSide && Math.abs(portalZ - z) < 1.9);
         }
@@ -349,9 +351,9 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
         for (let i = 0; i < railSegments.length; i++) {
           const rail = railSegments[i];
           instanceTransform.position.copy(rail.position); instanceTransform.rotation.copy(rail.rotation); instanceTransform.scale.setScalar(1);
-          const index = Math.round((travel + 4 - rail.position.z - 6) / SPACING);
-          const pz = 4 - (index * SPACING - travel + 6);
-          if (part.side === 3 && i % 4 !== 1) instanceTransform.scale.setScalar(0);
+          const index = Math.round((travel + 4 - rail.position.z - PORTAL_OFFSET) / SPACING);
+          const pz = 4 - (index * SPACING - travel + PORTAL_OFFSET);
+          if (part.side === 3 && i % 6 !== 1) instanceTransform.scale.setScalar(0);
           if (Math.abs(part.side) === 1 && part.side === (index % 2 === 0 ? 1 : -1) && Math.abs(pz - rail.position.z) < 1.9) instanceTransform.scale.setScalar(0);
           instanceTransform.updateMatrix(); instanceMatrix.multiplyMatrices(instanceTransform.matrix, part.local); part.mesh.setMatrixAt(i, instanceMatrix);
         }
@@ -359,11 +361,12 @@ export default function RiverScene({ anchor, chats, paused, direction, strafe, o
       }
       const center = Math.floor(travel / SPACING);
       for (let i = 0; i < portals.length; i++) {
-        const index = center + i - 2; const distance = index * SPACING - travel + 6;
+        const index = center + i - 2; const distance = index * SPACING - travel + PORTAL_OFFSET;
         const z = 4 - distance; const side = index % 2 === 0 ? 1 : -1; const portal = portals[i];
         portal.root.position.set(curve(z) + side * 6.35, 0, z);
-        portal.root.rotation.y = side * -.46 + Math.atan(.0076 * (z - 4));
+        portal.root.rotation.y = -side * Math.PI / 2 + Math.atan(.0076 * (z - 4));
         portal.root.visible = z < 16 && z > -135;
+        if (i === 2) { root!.dataset.portalAngle = portal.root.rotation.y.toFixed(4); root!.dataset.roadAngle = Math.atan(.0076 * (z - 4)).toFixed(4); }
         const date = offsetDate(anchor, index), active = activeDates.has(date);
         if (portal.index !== index) {
           const previous = portal.labelMaterial.map;

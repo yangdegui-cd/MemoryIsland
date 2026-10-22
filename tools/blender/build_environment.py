@@ -16,15 +16,23 @@ crystal=mat('Sky crystal',(.16,.48,.52),.45,.22)
 scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=1
 bpy.ops.mesh.primitive_plane_add();plane=bpy.context.object;plane.data.materials.append(marble)
 n=marble.node_tree.nodes;l=marble.node_tree.links;p=n.get('Principled BSDF')
-noise=n.new('ShaderNodeTexNoise');noise.inputs['Scale'].default_value=5;noise.inputs['Detail'].default_value=5;noise.inputs['Roughness'].default_value=.65
-wave=n.new('ShaderNodeTexWave');wave.wave_type='BANDS';wave.bands_direction='DIAGONAL';wave.inputs['Scale'].default_value=4;wave.inputs['Distortion'].default_value=9;wave.inputs['Detail'].default_value=5
-l.new(noise.outputs['Fac'],wave.inputs['Vector'])
-ramp=n.new('ShaderNodeValToRGB');ramp.color_ramp.elements[0].position=.08;ramp.color_ramp.elements[0].color=(.57,.56,.51,1);ramp.color_ramp.elements[1].position=.22;ramp.color_ramp.elements[1].color=(.84,.81,.72,1)
+noise=n.new('ShaderNodeTexNoise');noise.inputs['Scale'].default_value=3.2;noise.inputs['Detail'].default_value=5;noise.inputs['Roughness'].default_value=.65
+wave=n.new('ShaderNodeTexWave');wave.wave_type='BANDS';wave.bands_direction='DIAGONAL';wave.inputs['Scale'].default_value=3;wave.inputs['Distortion'].default_value=3.5;wave.inputs['Detail'].default_value=5
+coord=n.new('ShaderNodeTexCoord'); warp=n.new('ShaderNodeVectorMath');warp.operation='SCALE';warp.inputs[3].default_value=.28;l.new(noise.outputs['Color'],warp.inputs[0]);add=n.new('ShaderNodeVectorMath');add.operation='ADD';l.new(coord.outputs['UV'],add.inputs[0]);l.new(warp.outputs['Vector'],add.inputs[1]);l.new(add.outputs['Vector'],wave.inputs['Vector'])
+ramp=n.new('ShaderNodeValToRGB');ramp.color_ramp.elements[0].position=.025;ramp.color_ramp.elements[0].color=(.70,.69,.66,1);ramp.color_ramp.elements[1].position=.055;ramp.color_ramp.elements[1].color=(.77,.76,.72,1)
 l.new(wave.outputs['Color'],ramp.inputs[0]);l.new(ramp.outputs['Color'],p.inputs['Base Color'])
-image=bpy.data.images.new('River ivory marble',width=1024,height=1024);target=n.new('ShaderNodeTexImage');target.image=image;n.active=target
+image=bpy.data.images.new('River ivory marble',width=2048,height=2048);target=n.new('ShaderNodeTexImage');target.image=image;n.active=target
 scene.render.bake.use_pass_direct=False;scene.render.bake.use_pass_indirect=False;scene.render.bake.use_pass_color=True
 bpy.ops.object.bake(type='DIFFUSE');image.pack()
 l.new(target.outputs['Color'],p.inputs['Base Color'])
+# Bake a millimetre-scale normal map so stone catches light without looking chipped.
+fine=n.new('ShaderNodeTexNoise');fine.inputs['Scale'].default_value=150;fine.inputs['Detail'].default_value=2
+bump=n.new('ShaderNodeBump');bump.inputs['Strength'].default_value=.06;bump.inputs['Distance'].default_value=.0015
+l.new(fine.outputs['Fac'],bump.inputs['Height']);l.new(bump.outputs['Normal'],p.inputs['Normal'])
+normal_image=bpy.data.images.new('Polished marble micro normal',width=1024,height=1024);normal_image.colorspace_settings.name='Non-Color'
+nt=n.new('ShaderNodeTexImage');nt.image=normal_image;n.active=nt
+bpy.ops.object.bake(type='NORMAL');normal_image.pack()
+nm=n.new('ShaderNodeNormalMap');l.new(nt.outputs['Color'],nm.inputs['Color']);l.new(nm.outputs['Normal'],p.inputs['Normal'])
 bpy.data.objects.remove(plane,do_unlink=True)
 parts={}
 def finish(o,name,material,part,bevel=0):
@@ -58,7 +66,7 @@ def lathe(name,x,y,z,profile,m,part,n=20):
 # Eight-unit-wide road, stone slab thickness and continuous underside molding.
 part='BridgeRoad';box('Bridge bed',(0,0,-.23),(8.4,2.2,.42),shadow,part,.035)
 for x in [-3,-1,1,3]:
- for y in [-.55,.55]:box('Individual bevelled paver',(x,y,-.035),(1.985,1.084,.12),marble,part,.014)
+ box('Large polished paver',(x,0,-.035),(1.989,2.188,.12),marble,part,.008)
 for x in [-3.75,-3.63,3.63,3.75]:box('Long gold inlay',(x,0,.032),(.022,2.2,.008),inlay,part,.003)
 for side in [-1,1]:
  box('Projecting edge cornice',(side*4.1,0,-.12),(.45,2.2,.18),light,part,.025)
@@ -76,65 +84,81 @@ for side in [-1,1]:
  part='BridgeLeftRail' if side<0 else 'BridgeRightRail';x=side*4.04
  box('Balustrade plinth',(x,0,.115),(.38,2.2,.23),light,part,.025)
  box('Rounded handrail',(x,0,1.12),(.4,2.22,.14),marble,part,.028)
- box('Fine rail crest',(x,0,1.205),(.33,2.22,.04),gold,part,.008)
+ box('Rounded stone rail crest',(x,0,1.205),(.33,2.22,.04),light,part,.012)
+ tube('Fine handrail gilding',[(x-side*.145,-1.11,1.225),(x-side*.145,1.11,1.225)],.006,gold,part)
  for y in [-.82,-.28,.28,.82]:
-  lathe('Carved baluster',x,y,.23,[(0,.095),(.04,.10),(.10,.055),(.25,.085),(.38,.09),(.56,.045),(.72,.052),(.77,.08),(.82,.08)],light,part,16)
+  lathe('Carved baluster',x,y,.23,[(0,.095),(.04,.10),(.10,.055),(.25,.085),(.38,.09),(.56,.045),(.72,.052),(.77,.08),(.82,.08)],light,part,40)
  box('Square pier',(x,1.06,.62),(.29,.25,1.0),marble,part,.022)
  box('Pier foot',(x,1.06,.26),(.42,.38,.14),light,part,.018)
  box('Pier capital',(x,1.06,1.19),(.44,.4,.11),light,part,.018)
  box('Pier gilt molding',(x,1.06,1.26),(.36,.32,.045),gold,part,.008)
- bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1,radius=.12,location=(x,1.06,1.39));o=bpy.context.object;o.scale.z=1.5;finish(o,'Sunstone finial',gold,part)
-# Portal pedestal and threshold are fully outside the road.
-part='Portal';box('Floating bay foundation',(0,0,-.25),(4.6,3.8,.45),shadow,part,.08)
-for z,w,d in [(-.06,4.45,3.65),(.03,4.15,3.35),(.12,3.85,3.05)]:box('Carved platform step',(0,0,z),(w,d,.13),marble,part,.035)
-for x in [-1.65,1.65]:box('Platform gold inlay',(x,0,.195),(.025,2.65,.012),gold,part,.005)
-# Columns with fluting, acanthus capitals and delicate gilded vines.
-for side in [-1,1]:
- x=side*1.25
- box('Pedestal base',(x,0,.41),(.72,.8,.4),marble,part,.045)
- box('Pedestal gold bead',(x,0,.61),(.65,.72,.065),gold,part,.015)
- lathe('Fluted column core',x,0,.64,[(0,.25),(.10,.23),(.2,.19),(3.21,.17),(3.38,.23),(3.43,.27)],marble,part,32)
- for i in range(12):
-  a=i/12*math.tau
-  tube('Fine column flute',[(x+.18*math.cos(a),.18*math.sin(a),.92),(x+.155*math.cos(a),.155*math.sin(a),3.8)],.013,light,part)
- for z in [.78,3.9,4.02]:lathe('Capital molding',x,0,z,[(0,.26),(.035,.28),(.075,.26)],gold,part,32)
- box('Column abacus',(x,0,4.15),(.68,.7,.14),marble,part,.025)
- for face in [-1,1]:
-  tube('Climbing gilded vine',[(x,face*.23,.9),(x+side*.09,face*.25,1.7),(x-side*.08,face*.25,2.6),(x+side*.05,face*.24,3.7)],.012,gold,part)
-  for z in [1.2,1.8,2.4,3.0,3.55]:
-   for s in [-1,1]:
-    leaf=sphere('Acanthus gold leaf',(x+s*.08,face*.25,z),(.045,.015,.12),gold,part);leaf.rotation_euler.y=s*.55
-# Pointed arch stone ring, correctly beveled front/back surfaces.
-outer=[];inner=[]
-for side in [-1,1]:
- seq=range(25) if side<0 else range(24,-1,-1)
- for i in seq:
-  t=i/24
-  xx=(1-t)**2*1.52+2*(1-t)*t*1.45
-  zz=(1-t)**2*4.12+2*(1-t)*t*5.08+t*t*5.98
-  ix=(1-t)**2*1.03+2*(1-t)*t*.98
-  iz=(1-t)**2*4.12+2*(1-t)*t*4.83+t*t*5.48
-  outer.append((side*xx,zz));inner.append((side*ix,iz))
-N=len(outer);verts=[]
-for y in [-.30,.30]:
- for seq in [outer,inner]:verts += [(x,y,z) for x,z in seq]
+ lathe('Carved pier urn',x,1.06,1.29,[(0,.085),(.04,.10),(.1,.07),(.18,.08),(.23,.045),(.28,0)],light,part,40)
+# A roadside pavilion: its long facade is aligned with the road at runtime.
+# Four free-standing columns, a coffered canopy and an inset arched light doorway.
+part='Portal'
+roofmat=mat('Pearl glazed pavilion roof',(.36,.43,.42),.32,.27)
+stonebase=mat('Honed warm limestone',(.61,.59,.53),.02,.48)
+box('Pavilion foundation',(0,0,-.25),(4.9,5.25,.46),stonebase,part,.05)
+box('Rebated platform cornice',(0,0,-.04),(4.82,5.2,.13),light,part,.028)
+box('Pavilion floor',(0,.15,.045),(4.55,4.6,.10),marble,part,.012)
+# Broad, shallow steps connect the entrance directly to the clear road edge.
+for y,z,w,d in [(-2.42,.0,3.3,.44),(-2.15,.065,3.24,.40),(-1.88,.13,3.18,.36)]:
+ box('Shallow entrance step',(0,y,z),(w,d,.13),marble,part,.018)
+for x in [-1.98,1.98]:box('Floor border inlay',(x,.15,.102),(.013,3.85,.009),inlay,part,.003)
+# Tall classical columns; narrow proportions and high radial resolution.
+for x in [-1.70,1.70]:
+ for y in [-1.46,1.53]:
+  box('Column stepped plinth',(x,y,.23),(.51,.51,.27),stonebase,part,.022)
+  box('Column plinth molding',(x,y,.39),(.54,.54,.08),light,part,.015)
+  lathe('Column torus foot',x,y,.43,[(0,.23),(.025,.25),(.065,.25),(.1,.19),(.16,.17)],light,part,48)
+  lathe('Tapered marble column',x,y,.58,[(0,.17),(.15,.165),(1.3,.151),(2.6,.137),(3.53,.14)],marble,part,64)
+  for j in range(16):
+   a=j/16*math.tau
+   tube('Delicate column fluting',[(x+math.cos(a)*.163,y+math.sin(a)*.163,.79),(x+math.cos(a)*.136,y+math.sin(a)*.136,3.93)],.006,light,part)
+  lathe('Column collar',x,y,4.08,[(0,.16),(.04,.19),(.07,.19),(.1,.17)],gold,part,48)
+  lathe('Carved capital',x,y,4.16,[(0,.17),(.07,.19),(.14,.25),(.20,.27)],light,part,48)
+  box('Capital abacus',(x,y,4.43),(.59,.59,.13),marble,part,.016)
+  for j in range(8):
+   a=j/8*math.tau
+   leaf=sphere('Capital acanthus leaf',(x+math.cos(a)*.22,y+math.sin(a)*.22,4.23),(.035,.06,.13),light,part);leaf.rotation_euler.z=-a
+# Recessed architrave and continuous cornice; underside coffers remain visible.
+for z,w,d,h,m in [(4.52,4.25,4.05,.14,stonebase),(4.62,4.48,4.32,.11,marble),(4.71,4.62,4.46,.07,gold),(4.78,4.85,4.69,.12,light),(4.87,5.05,4.89,.07,marble)]:
+ box('Layered pavilion cornice',(0,.035,z),(w,d,h),m,part,.018)
+for x in [-1.12,0,1.12]:
+ for y in [-1.04,.05,1.14]:
+  box('Coffered ceiling recess',(x,y,4.435),(.91,.88,.025),shadow,part,.015)
+  box('Coffered ceiling panel',(x,y,4.421),(.73,.70,.023),light,part,.014)
+# A softly curved hipped roof, not a flat signboard or a solid gold cap.
+profile=[(4.90,2.58,2.50),(4.98,2.64,2.56),(5.07,2.50,2.42),(5.22,2.15,2.08),(5.48,1.66,1.61),(5.72,1.10,1.06),(5.94,.45,.44),(6.04,.08,.08)]
+N=64; verts=[]
+for z,rx,ry in profile:
+ for i in range(N):
+  a=i/N*math.tau;c=math.cos(a);s=math.sin(a)
+  verts.append((rx*math.copysign(abs(c)**.45,c),.035+ry*math.copysign(abs(s)**.45,s),z))
 faces=[]
-for i in range(N-1):
- for j in [0,2*N]:faces.append((j+i,j+i+1,j+N+i+1,j+N+i))
- faces.append((i,i+1,2*N+i+1,2*N+i));faces.append((N+i,N+i+1,3*N+i+1,3*N+i))
-me=bpy.data.meshes.new('Pointed arch');me.from_pydata(verts,[],faces);me.update();o=bpy.data.objects.new('Pointed marble arch',me);bpy.context.collection.objects.link(o);finish(o,'Pointed arch',marble,part,.025)
-for face in [-1,1]:
- for edge in [inner,outer]:tube('Champagne arch fillet',[(x,face*.335,z) for x,z in edge],.022,gold,part)
- for i in range(4,N-4,5):
-  x=(inner[i][0]+outer[i][0])*.5;z=(inner[i][1]+outer[i][1])*.5
-  sphere('Arch rosette',(x,face*.345,z),(.045,.02,.045),gold,part)
-# High crown, starburst and side ornaments.
-for side in [-1,1]:
- x=side*1.29
- tube('Winged crown flourish',[(x,0,4.2),(side*1.63,0,4.55),(side*1.73,0,5.05),(side*1.57,0,4.89)],.045,gold,part)
- for z in [4.45,4.65,4.85]:sphere('Crown gilded leaf',(side*(1.55+(z-4.45)*.4),0,z),(.075,.045,.13),gold,part)
-for z,scale in [(6.03,.22),(6.55,.11)]:
- bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1,radius=scale,location=(0,0,z));o=bpy.context.object;o.scale=(.7,.5,1.75);finish(o,'Champagne star crystal',gold,part)
+for row in range(len(profile)-1):
+ for i in range(N):k=row*N+i;faces.append((k,row*N+(i+1)%N,(row+1)*N+(i+1)%N,k+N))
+faces.append(tuple((len(profile)-1)*N+i for i in range(N)))
+me=bpy.data.meshes.new('Curved hip roof');me.from_pydata(verts,[],faces);me.update();ob=bpy.data.objects.new('Curved hip roof',me);bpy.context.collection.objects.link(ob);finish(ob,'Pearl glazed hip roof',roofmat,part)
+for j in range(12):
+ a=j/12*math.tau;c=math.cos(a);s=math.sin(a)
+ tube('Fine roof rib',[(rx*math.copysign(abs(c)**.45,c),.035+ry*math.copysign(abs(s)**.45,s),z+.009) for z,rx,ry in profile],.009,gold,part)
+for z,rx,ry in [profile[1]]:
+ tube('Roof drip edge',[(rx*math.copysign(abs(math.cos(i/N*math.tau))**.45,math.cos(i/N*math.tau)),.035+ry*math.copysign(abs(math.sin(i/N*math.tau))**.45,math.sin(i/N*math.tau)),z) for i in range(N+1)],.018,gold,part)
+lathe('Roof finial',0,.035,6.03,[(0,.11),(.08,.15),(.15,.10),(.26,.07),(.40,0)],gold,part,48)
+# A genuine recessed doorway at the back of the pavilion; clear standing space ahead.
+for x in [-1.14,1.14]:
+ box('Door jamb foot',(x,.78,.23),(.40,.48,.24),light,part,.018)
+ box('Recessed door jamb',(x,.78,1.78),(.22,.32,3.0),marble,part,.023)
+ tube('Door jamb gilded reveal',[(x,.58,.34),(x,.58,3.25)],.012,gold,part)
+for radius,thickness,m,y in [(1.14,.115,marble,.78),(1.14,.018,gold,.575),(1.27,.022,light,.77)]:
+ tube('Rounded doorway archivolt',[(math.cos(i/48*math.pi)*radius,y,3.16+math.sin(i/48*math.pi)*radius) for i in range(49)],thickness,m,part)
+# Low rear balustrades give the pavilion volume without closing its road-facing side.
+for x in [-1.83,1.83]:
+ box('Side pavilion parapet',(x,.62,.22),(.20,1.4,.2),light,part,.02)
+ box('Side pavilion handrail',(x,.62,1.04),(.23,1.4,.11),marble,part,.02)
+ for y in [.08,.44,.80,1.16]:lathe('Side baluster',x,y,.32,[(0,.065),(.08,.07),(.3,.04),(.51,.065),(.65,.04)],light,part,32)
+
 # Consolidate modular pieces by category/material; runtime instances share geometry.
 roots={}
 for label,objects in parts.items():
