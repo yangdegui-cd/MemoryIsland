@@ -2,10 +2,12 @@ import { Miniflare } from 'miniflare';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 const data = process.env.DATA_DIR || '/data';
+const root = path.resolve('dist/server');
+const files = await readdir(root, { recursive: true });
+const modules = ['index.js', ...files.filter(n=>n.endsWith('.js') && n!=='index.js')].map(name=>({type:'ESModule',path:path.join(root,name)}));
 const runtime = new Miniflare({
   name: 'daily-island', host: '0.0.0.0', port: 8787,
-  scriptPath: 'dist/server/index.js', modules: true,
-  modulesRoot: 'dist/server', modulesRules: [{type:'ESModule',include:['**/*.js']}],
+  modules, modulesRoot: root,
   compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'],
   d1Databases: { DB: 'daily-island-db' }, d1Persist: path.join(data,'d1'),
   r2Buckets: { BUCKET: 'daily-island-photos' }, r2Persist: path.join(data,'r2'),
