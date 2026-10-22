@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from 'react';
+import {useIslandLanguage} from './components/useIslandLanguage';
 import {Landmark, Waves, Gamepad2, Cloud, Sprout} from 'lucide-react';
 import './island-home.css';
 import IslandIntro from './components/IslandIntro';
@@ -11,10 +11,7 @@ const copy = {
 };
 
 export default function Home(){
-  const [language,setLanguage]=useState<'zh'|'en'>('zh');
-  useEffect(()=>{try{const saved=localStorage.getItem('island-language');if(saved==='en'||saved==='zh')setLanguage(saved);}catch{}},[]);
-  useEffect(()=>{document.documentElement.lang=language==='zh'?'zh-CN':'en';},[language]);
-  const changeLanguage=(next:'zh'|'en')=>{setLanguage(next);try{localStorage.setItem('island-language',next);}catch{}};
+  const {language,changeLanguage}=useIslandLanguage();
   const t=copy[language];
   const destinations=[
     {name:t.palace,href:'/album',className:'palace',Icon:Landmark},
