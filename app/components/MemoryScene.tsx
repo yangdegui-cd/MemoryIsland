@@ -91,9 +91,9 @@ export default function MemoryScene({ photos, onSelect }: Props) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(65, 1, .15, 180);
-    camera.position.set(0, 3.8, 34);
+    camera.position.set(0, 1.2, 27);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 10, -28);
+    controls.target.set(0, 17, -28);
     controls.enableDamping = true;
     controls.dampingFactor = .055;
     controls.rotateSpeed = .32;
@@ -101,7 +101,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     controls.panSpeed = .46;
     controls.minDistance = 8;
     controls.maxDistance = 68;
-    controls.minPolarAngle = Math.PI * .40;
+    controls.minPolarAngle = Math.PI * .30;
     controls.maxPolarAngle = Math.PI * .54;
     controls.minAzimuthAngle = -.30;
     controls.maxAzimuthAngle = .30;
@@ -144,6 +144,14 @@ export default function MemoryScene({ photos, onSelect }: Props) {
 
     const stone = new THREE.MeshStandardMaterial({ color: '#695443', roughness: .82, metalness: .12 });
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
+    stone.onBeforeCompile = shader => {
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvStonePosition = position;');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <color_fragment>', `#include <color_fragment>
+        float vein = sin(vStonePosition.y * 11. + sin(vStonePosition.x * 17. + vStonePosition.z * 9.) * 2. + sin(vStonePosition.y * 3.) * 4.);
+        float line = pow(abs(vein), 28.);
+        diffuseColor.rgb *= .64 + line * .42;
+      `);
+    };
     materials.add(stone); materials.add(bronze);
     scene.add(new THREE.HemisphereLight('#d7b488', '#4c3924', 2.2));
     const sunlight = new THREE.DirectionalLight('#ffe1a2', 3.2);
@@ -267,6 +275,32 @@ export default function MemoryScene({ photos, onSelect }: Props) {
         }
       }
     }
+    // Gold scrollwork sits on the actual wall surfaces, with parallax and depth.
+    const scrollPoints = Array.from({ length: 40 }, (_, i) => {
+      const a = i / 39 * Math.PI * 3.4, r = .44 * (1 - i / 45);
+      return new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0);
+    });
+    const scrollGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(scrollPoints), 40, .028, 5, false);
+    const wallScrolls = keep(new THREE.InstancedMesh(scrollGeometry, bronze, 96));
+    const scrollTransform = new THREE.Object3D();
+    let ornamentIndex = 0;
+    for (const side of [-1, 1]) for (let bay = 0; bay < 6; bay++) {
+      for (const y of [1.2, 4.7, 8, 10]) for (const dz of [-2.7, 2.7]) {
+        scrollTransform.position.set(side * 11.1, y, 16 - bay * 9 + dz);
+        scrollTransform.rotation.set(0, side * Math.PI / 2, dz > 0 ? Math.PI : 0);
+        scrollTransform.updateMatrix(); wallScrolls.setMatrixAt(ornamentIndex++, scrollTransform.matrix);
+      }
+    }
+    scene.add(wallScrolls);
+    // Rose tracery below each high window crown.
+    const traceryGeometry = new THREE.TorusGeometry(.42, .045, 6, 32);
+    for (let bay = 0; bay < 6; bay++) for (let petal = 0; petal < 6; petal++) {
+      const a = petal / 6 * Math.PI * 2;
+      const tracery = keep(new THREE.Mesh(traceryGeometry, bronze));
+      tracery.rotation.y = Math.PI / 2;
+      tracery.position.set(11.18, 8 + Math.sin(a) * .53, 16 - bay * 9 + Math.cos(a) * .53);
+      scene.add(tracery);
+    }
     // A continuous barrel vault spans the nave; ribs sit just below its surface.
     const vaultVertices: number[] = [], vaultIndices: number[] = [];
     for (let row = 0; row < 2; row++) {
@@ -283,13 +317,26 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     scene.add(keep(new THREE.Mesh(vaultGeometry, vaultMaterial)));
     // Upper side galleries run behind the columns and reinforce the immense scale.
     for (const side of [-1, 1]) {
-      box(1.7, .25, 64, stone, side * 11, 5.9, -10.5);
-      for (const y of [6.15, 7.35]) box(.10, .10, 64, bronze, side * 10.15, y, -10.5);
+      box(2.7, .38, 64, stone, side * 10.55, 5.9, -10.5);
+      for (const y of [6.15, 7.35]) box(.10, .10, 64, bronze, side * 9.17, y, -10.5);
       for (let z = -42; z < 22; z += .9) {
-        box(.07, 1.2, .07, bronze, side * 10.15, 6.75, z);
+        box(.07, 1.2, .07, bronze, side * 9.17, 6.75, z);
       }
     }
 
+    // Two flights lead from the ground floor into the upper galleries.
+    for (const side of [-1, 1]) {
+      for (let step = 0; step < 22; step++) {
+        const top = -4 + (step + 1) * 9.71 / 22;
+        box(2.6, top + 4, .75, stone, side * 10.1, (top - 4) / 2, 15 - step * .72);
+        box(2.6, .035, .075, bronze, side * 10.1, top + .02, 15.32 - step * .72);
+      }
+      const handrail = [new THREE.Vector3(side * 8.8, -2.7, 15.5), new THREE.Vector3(side * 8.8, 7, -.5)];
+      scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(handrail), 16, .065, 6, false), bronze)));
+      for (let post = 0; post < 12; post++) {
+        box(.06, 1.2, .06, bronze, side * 8.8, -3.3 + post * 9.7 / 11, 15.5 - post * 16 / 11);
+      }
+    }
     // A real mirror below the scene reflects moving photographs and architecture.
     const mirror = new Reflector(new THREE.PlaneGeometry(29, 86), {
       color: new THREE.Color('#5b4632'), textureWidth: 768, textureHeight: 768, clipBias: .003,
@@ -346,23 +393,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const palace = new THREE.Group();
     for (const object of [...scene.children]) palace.add(object);
     palace.scale.copy(palaceScale); palace.position.y = 4 * (palaceScale.y - 1);
-    // Use the user-selected palace artwork without simplified geometry covering
-    // its carved detail. Navigation remains bounded; photographs stay true 3D.
-    palace.visible = false;
     scene.add(palace);
-    let palaceArtwork: THREE.Texture | null = null;
-    const fitArtwork = () => {
-      if (!palaceArtwork) return;
-      const image = palaceArtwork.image as HTMLImageElement;
-      const imageAspect = image.width / image.height;
-      const viewAspect = root!.clientWidth / Math.max(1, root!.clientHeight);
-      palaceArtwork.repeat.set(Math.min(1, viewAspect / imageAspect), Math.min(1, imageAspect / viewAspect));
-      palaceArtwork.offset.set((1 - palaceArtwork.repeat.x) / 2, (1 - palaceArtwork.repeat.y) / 2);
-      palaceArtwork.updateMatrix();
-    };
-    load('/art/palace-reference.png', texture => {
-      palaceArtwork = texture; scene.background = texture; fitArtwork();
-    });
 
     const cards: { mesh: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; angles: THREE.Vector3 }[] = [];
     const all: Entry[] = photos.length ? photos.slice(0, 60) : Array.from({ length: 44 }, (_, i) => ({ id: `sample-${i}`, kind: 'sample', data: {}, createdAt: 0 }));
@@ -375,11 +406,13 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const rawX = foreground ? [-4.3, 4.6, -2.6, 3.1, -5.2, 5.4][i] : Math.sin(phase) * (2.8 + i % 5 * 1.15);
       const rawY = [5.6, 2.1, .4, 7.0, 3.6, -.7, 6.2, 1.3, 4.4, 8.4][i % 10] + Math.sin(i * 1.3) * .5;
       const rawZ = foreground ? [7.4, 6.4, 2.4, 3.5, -1.2, -.4][i] : 1 - Math.floor((i - 6) / 6) * 5.1 + Math.cos(phase) * 1.6;
-      const x = rawX * 2.05, y = (rawY + 1) * 1.65 + 1.5, z = rawZ * 2.2 - 3;
+      const x = rawX * 2.05;
+      const y = foreground ? [12, 7, 19, 27, 6, 33][i] : (rawY + 1) * 4.4 + 3;
+      const z = foreground ? [19, 17, 7, 1, 10, -8][i] : rawZ * 2.2 - 3;
       const pivot = new THREE.Group(); pivot.position.set(x, y, z);
       const angles = new THREE.Vector3([.09, -.16, .22, -.08][i % 4], [-.35, .42, -.67, .3, 2.7, 1.34, -2.5, .65, -1.12, .18][i % 10], (i % 5 - 2) * .045);
       pivot.rotation.set(angles.x, angles.y, angles.z);
-      const width = foreground ? 2.1 : 1.55 + i % 4 * .2, height = width * (i % 6 === 2 ? .83 : 1.25);
+      const width = foreground ? 3.2 : 1.9 + i % 4 * .2, height = width * (i % 6 === 2 ? .83 : 1.25);
       const plane = new THREE.PlaneGeometry(width, height, 24, 30); plane.translate(0, -height / 2, 0);
       const tile = photo.kind === 'sample' ? new THREE.Vector2(1 / 3, 1 / 2) : new THREE.Vector2(1, 1);
       const index = i % 6;
@@ -392,7 +425,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const mesh = keep(new THREE.Mesh(plane, material));
       mesh.userData.photo = photo.kind === 'sample' ? null : photo;
       pivot.add(mesh); scene.add(pivot); cards.push({ mesh, pivot, material, phase, angles });
-      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 32, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
+      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, 55, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
       scene.add(string);
       const clip = keep(new THREE.Mesh(new THREE.BoxGeometry(.055, .13, .055), bronze)); clip.position.set(0, -.02, .025); clip.rotation.z = .14; pivot.add(clip);
       if (photo.kind === 'sample') {
@@ -427,7 +460,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
       const width = root!.clientWidth, height = root!.clientHeight;
       if (!width || !height) return;
       renderer.setSize(width, height, false); composer.setSize(width, height);
-      camera.aspect = width / height; camera.updateProjectionMatrix(); fitArtwork();
+      camera.aspect = width / height; camera.updateProjectionMatrix();
     }
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
     let frame = 0;
