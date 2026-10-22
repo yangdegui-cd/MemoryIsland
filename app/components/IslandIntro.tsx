@@ -34,17 +34,20 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
       brush.fillStyle=gradient;brush.fillRect(0,0,32,32);return sprite;
     };
     const glow=makeGlow('#fff8dd');
-    const count=width<700?5500:14500;
-    const particles=Array.from({length:count},(_,i)=>({
-      angle:Math.random()*Math.PI*2,
-      band:i%3,
+    const count=width<700?6500:16000;
+    const particles=Array.from({length:count},()=>({
+      seed:Math.random()*Math.PI*2,
+      lane:Math.random(),
       spread:(Math.random()+Math.random()+Math.random()-1.5),
-      size:Math.random()<.018?1.8+Math.random()*2.4:.22+Math.random()*.9,
-      speed:.12+Math.random()*.055,
+      size:Math.random()<.009?1.8+Math.random()*1.6:.25+Math.random()*.9,
+      speed:.018+Math.random()*.065,
+      drift:.008+Math.random()*.025,
       phase:Math.random()*Math.PI*2,
-      alpha:.25+Math.random()*.7,
+      life:2+Math.random()*4,
+      age:Math.random()*6,
+      alpha:.3+Math.random()*.7,
     }));
-    const stars=Array.from({length:180},()=>({x:Math.random(),y:Math.random(),size:.25+Math.random()*.85,phase:Math.random()*6}));
+    const stars=Array.from({length:250},()=>({x:Math.random(),y:Math.random(),size:.25+Math.random()*.85,phase:Math.random()*6}));
     const start=performance.now();
     let last=0;
     const draw=(now:number)=>{
@@ -62,33 +65,35 @@ export default function IslandIntro({language}:{language:'zh'|'en'}){
         ctx.fillStyle='#e8c88b';ctx.fillRect(star.x*width,star.y*height,star.size,star.size);
       }
       for(const p of particles){
-        const angle=p.angle+seconds*p.speed;
-        // Two dense streams and a thin outer orbit; varying thickness creates wisps.
-        const base=[.345,.395,.47][p.band];
-        const thickness=p.band===2?.004:.016+.012*Math.sin(angle*3+p.band)**2;
-        const radius=(base+p.spread*thickness+Math.sin(angle*2+p.band)*.012)*scale;
+        const life=((seconds+p.age)%p.life)/p.life;
+        const envelope=Math.sin(life*Math.PI)**.65;
+        // Independent lifetimes and local turbulence break up the overall spiral silhouette.
+        // No shared rotation transform or discrete concentric orbits.
+        const angle=p.seed+seconds*p.speed;
+        const bend=Math.sin(angle*2.3+seconds*.17)*.028+Math.sin(angle*5.1+p.phase)*.012;
+        const lane=.315+p.lane*.13;
+        const widthOfCloud=.024+.023*(.5+.5*Math.sin(angle*3.7+seconds*.22));
+        const radialDrift=(life-.5)*p.drift;
+        const radius=(lane+p.spread*widthOfCloud+bend+radialDrift)*scale;
+        const turbulenceX=Math.sin(seconds*(.3+p.speed)+p.phase)*unit*.012;
+        const turbulenceY=Math.cos(seconds*.45+p.phase*1.7)*unit*.009;
         const ox=Math.cos(angle)*unit*radius;
         const oy=Math.sin(angle)*unit*radius*.48;
-        const x=width*.5+ox;
-        const y=height*.49+oy-ox*.23;
+        const x=width*.5+ox+turbulenceX;
+        const y=height*.49+oy-ox*.23+turbulenceY;
         const depth=(Math.sin(angle)+1)/2;
-        const size=p.size*(.85+depth*.65);
-        const alpha=Math.min(1,p.alpha*1.4)*entrance*(1-release*.9)*(.5+.5*Math.sin(seconds+p.phase)**2);
+        const size=p.size*(.8+depth*.6);
+        // Broken, bright wisps travel through a broader dim dust cloud.
+        const wisp=.3+.7*(.5+.5*Math.sin(angle*4.2+seconds*.3+p.lane*3))**2;
+        const alpha=p.alpha*entrance*(1-release*.9)*envelope*wisp;
         ctx.globalAlpha=alpha;
         if(p.size>1.8){
-          const diameter=size*(7+depth*5);
+          const diameter=size*(8+depth*5);
           ctx.drawImage(glow,x-diameter/2,y-diameter/2,diameter,diameter);
         }else{
-          ctx.fillStyle=p.band===1?'#e3b363':'#ffe2a0';
-          ctx.fillRect(x,y,Math.max(.7,size),Math.max(.7,size));
-          if(p.size>.85){const halo=size*5;ctx.globalAlpha=alpha*.3;ctx.drawImage(glow,x-halo/2,y-halo/2,halo,halo);ctx.globalAlpha=alpha;}
-          // A few moving streaks are tangent to the same tilted orbit.
-          if(p.phase<.22){
-            ctx.strokeStyle='#e9c278';ctx.lineWidth=.5;
-            ctx.beginPath();ctx.moveTo(x,y);
-            const dx=-Math.sin(angle)*3;
-            ctx.lineTo(x+dx,y+Math.cos(angle)*1.5-dx*.23);ctx.stroke();
-          }
+          ctx.fillStyle=p.lane>.5?'#f0c681':'#ffe6ae';
+          ctx.fillRect(x,y,Math.max(.65,size),Math.max(.65,size));
+          if(p.size>.85){const halo=size*5;ctx.globalAlpha=alpha*.35;ctx.drawImage(glow,x-halo/2,y-halo/2,halo,halo);}
         }
       }
       ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
