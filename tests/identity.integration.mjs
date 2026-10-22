@@ -1,0 +1,38 @@
+// Run against the isolated mood-release preview database, never production.
+import assert from 'node:assert/strict';
+const base=process.env.ISLAND_TEST_ORIGIN;
+if(base!=='http://127.0.0.1:5174')throw Error('Use the disposable preview on 127.0.0.1:5174.');
+const password='island-qa-only-2026';const replacement='island-qa-reset-2026';
+let checks=0;
+async function api(path,body,cookie='',method=body?'POST':'GET',expected=200,origin=base){const r=await fetch(base+path,{method,headers:{origin,...(body?{'Content-Type':'application/json'}:{}),...(cookie?{cookie}:{})},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();assert.equal(r.status,expected,JSON.stringify(data));checks++;return {data,cookie:r.headers.get('set-cookie')?.split(';')[0]||cookie,headers:r.headers};}
+const initial=await api('/api/identity');assert.equal(initial.data.people.length,0);assert.equal(initial.data.userId,null);
+await api('/api/records?kind=mood',undefined,'','GET',401);
+await api('/api/identity',{action:'identify',name:'stranger'},'','POST',400);
+await api('/api/identity',{action:'setup',name:'Alexx',password,timeZone:'UTC'},'','POST',403,'https://foreign.invalid');
+await api('/api/identity',{action:'setup',name:'Alexx',password:'short',timeZone:'UTC'},'','POST',400);
+assert.equal((await api('/api/identity',{action:'identify',name:'Alexx'})).data.initialized,false);
+const a=await api('/api/identity',{action:'setup',name:'Alexx',password,timeZone:'America/Los_Angeles'});assert.match(a.headers.get('set-cookie'),/HttpOnly.*SameSite=Lax.*Max-Age=15552000/);
+assert.equal((await api('/api/identity',undefined,a.cookie)).data.userId,'alexx');
+await api('/api/identity',{action:'setup',name:'Alexx',password:'different-123',timeZone:'UTC'},'','POST',409);
+await api('/api/identity',{action:'login',name:'Alexx',password:'incorrect-123'},'','POST',401);
+const second=await api('/api/identity',{action:'login',name:'Alexx',password});
+const b=await api('/api/identity',{action:'setup',name:'BV',password,timeZone:'Asia/Shanghai'});
+await api('/api/people',{primaryId:'bv',people:[{id:'alexx',timeZone:'Mars/Test'},{id:'bv',timeZone:'Asia/Shanghai'}]},a.cookie,'POST',400);
+const people=await api('/api/people',{primaryId:'bv',people:[{id:'alexx',timeZone:'America/Los_Angeles'},{id:'bv',timeZone:'Asia/Shanghai'}]},a.cookie);assert.equal(people.data.people.find(p=>p.isPrimary).id,'bv');
+const note=await api('/api/records',{kind:'mood',data:{date:'2026-10-22',mood:'平静',note:'这段心情，已经留在我们的云端。',authorId:'bv'}},a.cookie,'POST',201);
+const shared=await api('/api/records?kind=mood',undefined,b.cookie);assert.equal(shared.data.find(r=>r.id===note.data.id).data.authorId,'alexx');
+await api('/api/records',{kind:'mood',id:note.data.id,data:{date:'2026-10-22',mood:'开心',note:'两个人的记录，可以在不同的时间里读到。',authorId:'bv'}},b.cookie);
+assert.equal((await api('/api/records?kind=mood',undefined,b.cookie)).data[0].data.authorId,'alexx');
+await api('/api/records',{kind:'mood',data:{date:'2026-10-22',mood:'bad',note:'x'}},a.cookie,'POST',400);
+await api('/api/identity',{action:'reset',password:replacement},'','POST',401);
+const reset=await api('/api/identity',{action:'reset',password:replacement},a.cookie);assert.equal(reset.data.userId,'alexx');
+assert.equal((await api('/api/identity',undefined,second.cookie)).data.userId,null);
+await api('/api/records?kind=mood',undefined,second.cookie,'GET',401);
+await api('/api/identity',{action:'login',name:'Alexx',password},'','POST',401);
+const relogin=await api('/api/identity',{action:'login',name:'Alexx',password:replacement});
+await api('/api/identity',undefined,relogin.cookie,'DELETE');assert.equal((await api('/api/identity',undefined,relogin.cookie)).data.userId,null);
+for(let i=0;i<5;i++)await api('/api/identity',{action:'login',name:'BV',password:'incorrect-123'},'','POST',401);
+await api('/api/identity',{action:'login',name:'BV',password},'','POST',429);
+const bReset=await api('/api/identity',{action:'reset',password},b.cookie);
+await api('/api/records',{kind:'mood',data:{date:'2026-10-21',mood:'平静',note:'慢下来，给自己泡一杯茶。\n没有特别的事，也是安稳的一天。'}},bReset.cookie,'POST',201);
+console.log(`PASS ${checks} HTTP checks: setup, login, persisted session, shared records, author attribution, zones, password reset, revocation, logout, throttling, CSRF.`);

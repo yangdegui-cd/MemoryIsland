@@ -1,0 +1,12 @@
+{
+  "jambCenter": 1.23,
+  "jambWidth": 0.35,
+  "springHeight": 4.10,
+  "archRadius": 1.25,
+  "archStretch": 1.24,
+  "stoneRadius": 0.16,
+  "glassHalfWidth": 1.11,
+  "glassRise": 1.41,
+  "glassBottom": 0.39,
+  "depth": 0.78
+}

@@ -8,7 +8,13 @@ export function offsetDate(anchor: string, offset: number) {
   const [y, m, d] = anchor.split('-').map(Number);
   return dateKey(new Date(y, m - 1, d + offset, 12));
 }
-export function sampleChats(anchor: string): RiverChat[] {
+export function sampleChats(anchor: string, language: 'zh' | 'en' = 'zh'): RiverChat[] {
+  if (language === 'en') return [
+    { offset: 0, title: 'Leave today among the clouds', messages: [{role:'user',content:'If memories were a road, what would it look like?'},{role:'assistant',content:'Perhaps a long road above the clouds, with a door for every day. The words we shared would glow quietly behind them.'},{role:'user',content:'Then let’s walk a little slower. I want to take it all in.'}] },
+    { offset: 2, title: 'Dreaming of a journey', messages: [{role:'user',content:'I want to find somewhere quiet, watch the sunrise and think about nothing.'},{role:'assistant',content:'Keep that morning for yourself. Bring a warm drink and wait for the first light. There’s no need to rush into what comes next.'}] },
+    { offset: 3, title: 'A little good thing today', messages: [{role:'user',content:'A cat followed me for a little while on my walk today.'},{role:'assistant',content:'A tiny guide chose you today. That little stretch of road is a memory worth keeping.'}] },
+    { offset: -2, title: 'To my future self', messages: [{role:'user',content:'I hope I’ll look back someday and feel that the effort was worth it.'},{role:'assistant',content:'Take care of today first. Your future self will remember that you made a sincere start.'}] },
+  ].map((chat,i)=>({id:`sample-${i}`,date:offsetDate(anchor,chat.offset),title:chat.title,messages:chat.messages}));
   return [
     { offset: 0, title: '把今天留在云端', messages: [{ role: 'user', content: '如果回忆是一条路，你觉得它会是什么样子？' }, { role: 'assistant', content: '也许是一条云海上的长路。每走过一天，就留下一扇门。那些说过的话，会在门后静静发光。' }, { role: 'user', content: '那就慢一点走吧，我想多看看。' }] },
     { offset: 2, title: '关于一场旅行', messages: [{ role: 'user', content: '想找一个安静的地方，看日出，什么都不想。' }, { role: 'assistant', content: '那就把清晨留给自己吧。带一杯热饮，等天边第一束光，不必急着安排下一件事。' }] },

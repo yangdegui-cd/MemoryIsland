@@ -1,18 +1,46 @@
 "use client";
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 
 const FIREFLY = {count: 90, mobileCount: 48, leaves: 14, speed: 0.018, brightness: 0.85};
+let introCheckedInDocument = false;
+
+function shouldPlayIntro(){
+  const navigation=performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined;
+  // A client-side return must not reuse the original document's reload status.
+  if(introCheckedInDocument||navigation?.type==='back_forward')return false;
+  if(navigation&&new URL(navigation.name).pathname!=='/')return false;
+  if(navigation?.type==='reload')return true;
+  // Plain links also create a new document. Same-site navigation is a return,
+  // while a direct visit or arrival from another site gets the welcome effect.
+  if(document.referrer&&new URL(document.referrer).origin===location.origin)return false;
+  return true;
+}
 
 export default function IslandIntro({language}:{language:'zh'|'en'}){
-  const [visible,setVisible]=useState(true);
+  const [visible,setVisible]=useState(false);
   const [leaving,setLeaving]=useState(false);
+  const playback=useRef<boolean|null>(null);
   const canvas=useRef<HTMLCanvasElement>(null);
   const skip=useRef<HTMLButtonElement>(null);
   const dismiss=()=>{setLeaving(true);};
+  useLayoutEffect(()=>{
+    if(playback.current===null){
+      playback.current=shouldPlayIntro();
+      introCheckedInDocument=true;
+    }
+    setVisible(playback.current);
+    // A page restored from the back/forward cache must not resume its intro.
+    const hide=()=>setVisible(false);
+    const restore=(event:PageTransitionEvent)=>{if(event.persisted)hide();};
+    addEventListener('pagehide',hide);
+    addEventListener('pageshow',restore);
+    return ()=>{removeEventListener('pagehide',hide);removeEventListener('pageshow',restore);};
+  },[]);
   useEffect(()=>{
+    if(!visible)return;
     const timer=setTimeout(()=>{setLeaving(true);},6000);
     return ()=>clearTimeout(timer);
-  },[]);
+  },[visible]);
   useEffect(()=>{
     if(!leaving)return;
     const timer=setTimeout(()=>{setVisible(false);document.querySelector<HTMLAnchorElement>('.island-wordmark')?.focus({preventScroll:true});},800);

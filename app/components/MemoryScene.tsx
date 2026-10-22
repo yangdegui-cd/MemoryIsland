@@ -8,23 +8,35 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { Entry } from './data';
-import { palaceBounds, containCamera } from './albumRoom';
+import { palaceBounds, containCamera, ROOM_SPAN, navigation, photoLayout, photoScale, stepPaperWind, type PaperWindState } from './albumRoom';
+import { createPaperGeometry, deformPaperPoint } from './albumPaper';
+import { samplePhotos } from './albumPhotos';
 
 type Props = { photos: Entry[]; onSelect: (photo: Entry) => void };
 const paperVertex = `
-  uniform float uTime, uPhase, uMotion;
+  uniform float uBend, uPhase, uTime;
+  uniform vec2 uSize;
+  attribute float aSurface;
+  varying float vSurface;
   varying vec2 vUv;
   varying vec3 vWorld;
   varying float vDepth;
   void main() {
     vUv = uv;
+    vSurface = aSurface;
     vec3 p = position;
-    float loose = pow(1. - uv.y, 1.25);
-    float curl = pow((uv.x - .5) * 2., 2.) * .17;
-    float wave = sin(uv.y * 4.3 - uTime * .72 + uPhase) * .075
-               + sin(uv.x * 4.8 + uTime * .51 + uPhase) * .045;
-    p.z += curl + wave * loose * uMotion;
-    p.x += sin(uTime * .46 + uPhase + uv.y * 2.) * .035 * loose * uMotion;
+    float freeLength = 1. - uv.y;
+    float loose = freeLength * freeLength;
+    float side = (uv.x - .5) * 2.;
+    // A fixed hanging print bends under wind pressure: a broad bow, torsion
+    // across its width and a soft travelling ripple towards the free corners.
+    // Both faces and the thin rim use the same deformation. The top stays still.
+    float twist = sin(uTime * .72 + uPhase * .37);
+    float ripple = sin(uTime * 1.1 - freeLength * 3.4 + side * 1.2 + uPhase * .21);
+    p.z += loose * (uSize.y * .068 * uBend + uSize.x * .065 * side * twist);
+    p.z += loose * freeLength * uSize.x * (.026 * side * side + .014 * ripple);
+    p.x += loose * uSize.x * .004 * uBend;
+    p.y += loose * uSize.y * .012 * (uBend * uBend + twist * twist * .35);
     vWorld = (modelMatrix * vec4(p, 1.)).xyz;
     vec4 mv = modelViewMatrix * vec4(p, 1.);
     vDepth = -mv.z;
@@ -32,29 +44,45 @@ const paperVertex = `
   }
 `;
 const paperFragment = `
+  uniform float uHover;
   uniform sampler2D uMap;
   uniform vec2 uCover, uTile, uOffset;
-  uniform float uBack;
   varying vec2 vUv;
   varying vec3 vWorld;
   varying float vDepth;
+  varying float vSurface;
   void main() {
-    vec2 crop = clamp((vUv - .5) * uCover + .5, .002, .998);
-    vec3 image = texture2D(uMap, crop * uTile + uOffset).rgb;
-    float grain = fract(sin(dot(vUv, vec2(1537.3, 329.7))) * 43758.54) * .025;
-    vec3 paper = vec3(.77, .71, .59) + grain;
-    float inside = step(.025, vUv.x) * step(vUv.x, .975)
-                 * step(.075, vUv.y) * step(vUv.y, .975);
-    vec3 col = mix(paper, image, inside);
-    if (!gl_FrontFacing || uBack > .5) col = paper * .55;
+    // Soft, slightly rounded print corners and even ivory margins.
+    vec2 q = abs(vUv - .5) - vec2(.492);
+    float edge = length(max(q, 0.)) + min(max(q.x,q.y),0.) - .008;
+    float alpha = 1. - smoothstep(-fwidth(edge), fwidth(edge), edge);
+    if(alpha < .02) discard;
+    vec2 printUv = (vUv - vec2(.032,.082)) / vec2(.936,.886);
+    vec2 crop = clamp((printUv - .5) * uCover + .5, .004, .996);
+    vec3 picture = texture2D(uMap, crop * uTile + uOffset).rgb;
+    float grain = (fract(sin(dot(vUv, vec2(1537.3,329.7))) * 43758.54) - .5) * .006;
+    vec3 paper = vec3(.79,.74,.64) + grain;
+    paper *= .97 + .03 * smoothstep(0.,.045,min(min(vUv.x,1.-vUv.x),min(vUv.y,1.-vUv.y)));
+    vec2 feather = fwidth(vUv) * 1.3;
+    float inside = smoothstep(.032,.032+feather.x,vUv.x) * (1.-smoothstep(.968-feather.x,.968,vUv.x))
+                 * smoothstep(.082,.082+feather.y,vUv.y) * (1.-smoothstep(.968-feather.y,.968,vUv.y));
+    vec3 col = mix(paper, picture, inside);
+    if (vSurface > .5) col = mix(paper * .83, picture, inside * .025);
+    if (vSurface > 1.5) col = paper * .65;
     vec3 normal = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
-    vec3 sunlight = normalize(vec3(10., 11., -18.) - vWorld);
+    vec3 sunlight = normalize(vec3(160.,180.,-70.) - vWorld);
     float lit = abs(dot(normal, sunlight));
-    col *= .68 + lit * .52;
-    col += vec3(.085, .039, .009) * lit;
-    float fog = smoothstep(35., 115., vDepth);
-    col = mix(col, vec3(.058, .038, .021), fog * .65);
-    gl_FragColor = vec4(col, 1.);
+    col *= .74 + lit * .28;
+    col += vec3(.026,.013,.004) * lit;
+    vec3 viewDir = normalize(cameraPosition - vWorld);
+    float sheen = pow(abs(dot(normal, normalize(sunlight + viewDir))),42.) * .075;
+    col += vec3(1.,.87,.65) * sheen * inside * (1.-step(.5,vSurface));
+    col = mix(col, vec3(.10,.065,.035), smoothstep(150.,350.,vDepth) * .20);
+    float rim = 1. - smoothstep(.012,.045,min(min(vUv.x,1.-vUv.x),min(vUv.y,1.-vUv.y)));
+    col = col * (1. + uHover * .12) + uHover * rim * vec3(.50,.32,.12);
+    gl_FragColor = vec4(col,alpha);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
   }
 `;
 
@@ -89,29 +117,27 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     renderer.domElement.style.touchAction = 'none';
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(65, 1, .15, 750);
-    camera.position.set(0, 1.2, 27);
+    const camera = new THREE.PerspectiveCamera(58, 1, .2, ROOM_SPAN * 2.5);
+    camera.position.copy(navigation.start);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 17, -28);
+    controls.target.copy(navigation.target);
     controls.enableDamping = true;
     controls.dampingFactor = .055;
-    controls.rotateSpeed = .32;
-    controls.zoomSpeed = .52;
-    controls.panSpeed = .46;
-    controls.minDistance = 34;
-    controls.maxDistance = 68;
-    controls.minPolarAngle = Math.PI * .30;
-    controls.maxPolarAngle = Math.PI * .54;
-    controls.minAzimuthAngle = -.30;
-    controls.maxAzimuthAngle = .30;
-    controls.screenSpacePanning = false;
+    controls.rotateSpeed = .24;
+    controls.zoomSpeed = .42;
+    controls.panSpeed = .65;
+    controls.minDistance = navigation.minDistance;
+    controls.maxDistance = navigation.maxDistance;
+    controls.minPolarAngle = Math.PI * .18;
+    controls.maxPolarAngle = Math.PI * .82;
+    controls.screenSpacePanning = true;
     controls.touches.ONE = THREE.TOUCH.ROTATE;
     controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     controls.update();
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(800, 500), .35, .6, .88);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(800, 500), .14, .5, .96);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -170,56 +196,61 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     });
     const dustData = new Float32Array(260 * 3);
     for(let i=0;i<260;i++) {
-      dustData[i*3] = Math.sin(i*12.9)*25;
-      dustData[i*3+1] = Math.cos(i*4.1)*20+23;
-      dustData[i*3+2] = Math.sin(i*7.7)*60-20;
+      dustData[i*3] = Math.sin(i*12.9)*ROOM_SPAN*.35;
+      dustData[i*3+1] = Math.cos(i*4.1)*ROOM_SPAN*.30+ROOM_SPAN*.4;
+      dustData[i*3+2] = Math.sin(i*7.7)*ROOM_SPAN*.38;
     }
     const dustGeometry = new THREE.BufferGeometry();
     dustGeometry.setAttribute('position',new THREE.BufferAttribute(dustData,3));
     const dust = keep(new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#ffdfa4',size:.045,transparent:true,opacity:.45,depthWrite:false})));
     scene.add(dust);
 
-    const cards: { mesh: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; angles: THREE.Vector3 }[] = [];
-    const all: Entry[] = photos.length ? photos.slice(0, 60) : Array.from({ length: 44 }, (_, i) => ({ id: `sample-${i}`, kind: 'sample', data: {}, createdAt: 0 }));
+    const cards: { mesh: THREE.Mesh; pick: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; width:number; height:number; wind: PaperWindState }[] = [];
+    const pickMaterial = new THREE.MeshBasicMaterial({side:THREE.DoubleSide});materials.add(pickMaterial);
+    const all: Entry[] = photos.length ? photos.slice(0, 60) : samplePhotos;
     const empty = new THREE.DataTexture(new Uint8Array([89, 70, 49, 255]), 1, 1); empty.needsUpdate = true; textures.add(empty);
     const atlasMaterials: THREE.ShaderMaterial[] = [];
-    const cachedTextures = new Map<string, THREE.Texture>();
+    const clipGeometry = new THREE.BoxGeometry(.32,.44,.10);
+    const loopGeometry = new THREE.TorusGeometry(.14,.026,6,16);
+    const cordMaterial = new THREE.LineBasicMaterial({color:'#c1ad80',transparent:true,opacity:.095});
+    materials.add(cordMaterial);
     all.forEach((photo, i) => {
-      const phase = i * 2.39996;
-      const foreground = i < 6;
-      const rawX = foreground ? [-4.3, 4.6, -2.6, 3.1, -5.2, 5.4][i] : Math.sin(phase) * (2.8 + i % 5 * 1.15);
-      const rawY = [5.6, 2.1, .4, 7.0, 3.6, -.7, 6.2, 1.3, 4.4, 8.4][i % 10] + Math.sin(i * 1.3) * .5;
-      const rawZ = foreground ? [7.4, 6.4, 2.4, 3.5, -1.2, -.4][i] : 1 - Math.floor((i - 6) / 6) * 5.1 + Math.cos(phase) * 1.6;
-      const x = rawX * 2.05;
-      const y = foreground ? [12, 7, 19, 27, 6, 33][i] : (rawY + 1) * 4.4 + 3;
-      const z = foreground ? [19, 17, 7, 1, 10, -8][i] : rawZ * 2.2 - 3;
-      const pivot = new THREE.Group(); pivot.position.set(x, y, z);
-      const angles = new THREE.Vector3([.09, -.16, .22, -.08][i % 4], [-.35, .42, -.67, .3, 2.7, 1.34, -2.5, .65, -1.12, .18][i % 10], (i % 5 - 2) * .045);
+      const { position, width, height, angles, phase } = photoLayout(i);
+      const anchorY = palaceBounds.max.y - ROOM_SPAN * .025;
+      const length = anchorY - position.y;
+      const hanger = new THREE.Group(); hanger.position.set(position.x,anchorY,position.z);
+      const pivot = new THREE.Group(); pivot.position.y = -length;
       pivot.rotation.set(angles.x, angles.y, angles.z);
-      const width = foreground ? 3.2 : 1.9 + i % 4 * .2, height = width * (i % 6 === 2 ? .83 : 1.25);
-      const plane = new THREE.PlaneGeometry(width, height, 24, 30); plane.translate(0, -height / 2, 0);
+      pivot.scale.setScalar(photoScale(position.distanceTo(camera.position)));
+      hanger.add(pivot); scene.add(hanger);
+      const plane = createPaperGeometry(width,height);
       const tile = photo.kind === 'sample' ? new THREE.Vector2(1 / 3, 1 / 2) : new THREE.Vector2(1, 1);
       const index = i % 6;
-      const material = new THREE.ShaderMaterial({ vertexShader: paperVertex, fragmentShader: paperFragment, side: THREE.DoubleSide, uniforms: {
-        uTime: { value: 0 }, uPhase: { value: phase }, uMotion: { value: reduced ? 0 : 1 }, uMap: { value: empty },
-        uCover: { value: new THREE.Vector2(1, 1) }, uTile: { value: tile },
+      const material = new THREE.ShaderMaterial({ vertexShader: paperVertex, fragmentShader: paperFragment, side: THREE.FrontSide, transparent: true, uniforms: {
+        uHover: {value: 0}, uBend: { value: 0 }, uTime: {value: 0}, uSize: {value: new THREE.Vector2(width,height)}, uPhase: { value: phase }, uMap: { value: empty },
+        uCover: { value: new THREE.Vector2(Math.min(1, width * .936 / (height * .886)), Math.min(1, height * .886 / (width * .936))) }, uTile: { value: tile },
         uOffset: { value: photo.kind === 'sample' ? new THREE.Vector2(index % 3 / 3, index < 3 ? .5 : 0) : new THREE.Vector2() },
-        uBack: { value: 0 },
       }});
       const mesh = keep(new THREE.Mesh(plane, material));
-      mesh.userData.photo = photo.kind === 'sample' ? null : photo;
-      pivot.add(mesh); scene.add(pivot); cards.push({ mesh, pivot, material, phase, angles });
-      const string = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, palaceBounds.max.y - 1, z)]), new THREE.LineBasicMaterial({ color: '#d6b16d', transparent: true, opacity: .14 })));
-      scene.add(string);
-      const clip = keep(new THREE.Mesh(new THREE.BoxGeometry(.055, .13, .055), bronze)); clip.position.set(0, -.02, .025); clip.rotation.z = .14; pivot.add(clip);
+      mesh.userData.photo = photo;
+      pivot.add(mesh);
+      const pick=keep(new THREE.Mesh(new THREE.PlaneGeometry(width,height,8,10),pickMaterial));
+      pick.matrixAutoUpdate=false;pick.userData.photo=photo;pick.userData.source=mesh;
+      cards.push({mesh,pick,pivot,material,phase,width,height,wind:{bend:0}});
+      const cord = keep(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,-length,0)]),cordMaterial));
+      hanger.add(cord);
+      // The clamp and cord stay fixed; only the paper deforms below the top.
+      for (const z of [-.055,.055]) {
+        const jaw = keep(new THREE.Mesh(clipGeometry,bronze)); jaw.position.set(0,-.08,z); pivot.add(jaw);
+      }
+      const loop = keep(new THREE.Mesh(loopGeometry,bronze)); loop.position.y=.20; pivot.add(loop);
       if (photo.kind === 'sample') {
         atlasMaterials.push(material);
       } else {
         const url = '/api/photos/' + photo.id;
         load(url, texture => {
-          cachedTextures.set(url, texture);
           const image = texture.image as {width:number;height:number};
-          const imageAspect = image.width / image.height, cardAspect = width / height;
+          const imageAspect = image.width / image.height, cardAspect = width * .936 / (height * .886);
           material.uniforms.uCover.value.set(imageAspect > cardAspect ? cardAspect / imageAspect : 1, imageAspect < cardAspect ? imageAspect / cardAspect : 1);
           material.uniforms.uMap.value = texture;
         });
@@ -229,17 +260,46 @@ export default function MemoryScene({ photos, onSelect }: Props) {
 
     const ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
     let down = { x: 0, y: 0 };
-    function pointerDown(e: PointerEvent) { down = { x: e.clientX, y: e.clientY }; }
-    function pointerUp(e: PointerEvent) {
-      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1);
-      ray.setFromCamera(pointer, camera);
-      const hit = ray.intersectObjects(cards.map(c => c.mesh))[0];
-      if (hit?.object.userData.photo) selectRef.current(hit.object.userData.photo);
+    const pickPoint=new THREE.Vector3();
+    let hovered: THREE.Object3D | null = null, pointerInside = false, dragging = false, pressed = false;
+    function pointerPosition(e:PointerEvent){
+      const rect=renderer.domElement.getBoundingClientRect();
+      pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
     }
+    function hitPhoto(){
+      scene.updateMatrixWorld(true);camera.updateMatrixWorld();
+      for(const card of cards){
+        const vertices=card.pick.geometry.attributes.position,uv=card.pick.geometry.attributes.uv;
+        for(let i=0;i<vertices.count;i++){
+          deformPaperPoint(uv.getX(i),uv.getY(i),card.width,card.height,card.wind.bend,card.material.uniforms.uTime.value,card.phase,pickPoint);
+          vertices.setXYZ(i,pickPoint.x,pickPoint.y,pickPoint.z);
+        }
+        card.pick.geometry.computeBoundingSphere();card.pick.matrixWorld.copy(card.mesh.matrixWorld);
+      }
+      ray.setFromCamera(pointer,camera);
+      return ray.intersectObjects(cards.map(card=>card.pick))[0]?.object.userData.source as THREE.Mesh || null;
+    }
+    function pointerMove(e:PointerEvent){
+      pointerInside=true;pointerPosition(e);
+      if(pressed&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>7)dragging=true;
+    }
+    function pointerLeave(){pointerInside=false;hovered=null;renderer.domElement.style.cursor='grab'}
+    function pointerDown(e: PointerEvent) { down = { x: e.clientX, y: e.clientY };pressed=true;dragging=false; }
+    function pointerUp(e: PointerEvent) {
+      const moved=dragging||Math.hypot(e.clientX-down.x,e.clientY-down.y)>7;
+      pressed=false;dragging=false;
+      if(moved)return;
+      pointerPosition(e);
+      const hit=hitPhoto();
+      if(hit?.userData.photo)selectRef.current(hit.userData.photo);
+    }
+    function pointerCancel(){pressed=false;dragging=false;pointerLeave()}
     renderer.domElement.addEventListener('pointerdown', pointerDown);
     renderer.domElement.addEventListener('pointerup', pointerUp);
+    renderer.domElement.addEventListener('pointermove', pointerMove);
+    renderer.domElement.addEventListener('pointerleave', pointerLeave);
+    renderer.domElement.addEventListener('pointercancel', pointerCancel);
+    renderer.domElement.style.cursor='grab';
     function resize() {
       const width = root!.clientWidth, height = root!.clientHeight;
       if (!width || !height) return;
@@ -249,29 +309,44 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
     let frame = 0;
     const clock = new THREE.Clock();
+    const attachment = new THREE.Vector3();
+    let elapsed = 0;
+    let lastHit = 0;
     function tick() {
       if (disposed) return;
-      const time = clock.getElapsedTime();
-      if (!reduced) { dust.rotation.y = Math.sin(time * .023) * .025; dust.position.y = Math.sin(time * .11) * .15; }
+      const dt = Math.min(clock.getDelta(), .05);
+      elapsed += dt;
+      if (!reduced) { dust.rotation.y = Math.sin(elapsed * .023) * .008; }
       for (const card of cards) {
-        card.material.uniforms.uTime.value = time;
         if (!reduced) {
-          card.pivot.rotation.set(card.angles.x + Math.sin(time * .43 + card.phase) * .032,
-            card.angles.y + Math.sin(time * .32 + card.phase) * .065,
-            card.angles.z + Math.sin(time * .5 + card.phase) * .025);
+          stepPaperWind(card.wind,elapsed,dt,card.phase);
+          card.material.uniforms.uBend.value = card.wind.bend;
+          card.material.uniforms.uTime.value = elapsed;
         }
       }
       controls.update();
-      // Clamp both the orbit centre and eye, including accumulated pan/damping.
-      // Keeping the eye above the reflector avoids its undefined underside view.
+      // Constrain each final view ray after damping, before drawing any frame.
       containCamera(camera.position, controls.target);
       camera.lookAt(controls.target);
+      for (const card of cards) {
+        card.pivot.getWorldPosition(attachment);
+        const size = photoScale(attachment.distanceTo(camera.position));
+        // Scale around the suspension point so the print never leaves its cord.
+        card.pivot.scale.setScalar(THREE.MathUtils.damp(card.pivot.scale.x,size,3.5,dt));
+      }
+      if(pointerInside&&elapsed-lastHit>.06){
+        scene.updateMatrixWorld(true);camera.updateMatrixWorld();
+        hovered=dragging?null:hitPhoto();lastHit=elapsed;
+        renderer.domElement.style.cursor=dragging?'grabbing':hovered?'pointer':'grab';
+      }
+      for(const card of cards)card.material.uniforms.uHover.value=THREE.MathUtils.damp(card.material.uniforms.uHover.value,card.mesh===hovered?1:0,9,dt);
       composer.render(); frame = requestAnimationFrame(tick);
     }
     tick();
     return () => {
       disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', pointerDown); renderer.domElement.removeEventListener('pointerup', pointerUp);
+      renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerleave',pointerLeave);renderer.domElement.removeEventListener('pointercancel',pointerCancel);
       geometry.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
       bloom.dispose(); composer.dispose(); renderer.dispose();
       if (renderer.domElement.parentNode === root) root.removeChild(renderer.domElement);
@@ -279,7 +354,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
   }, [signature]);
 
   return <div className="real-memory-scene"><div className="webgl-host" ref={host} />
-    {unsupported && <div className="scene-fallback"><p>当前浏览器未能开启 3D 显示。</p><small>可以在下方照片网格中查看相册。</small></div>}
+    {unsupported && <div className="scene-fallback"><p>当前浏览器未能开启 3D 显示。</p><small>可以通过右上角的照片列表查看相册。</small></div>}
     {failed > 0 && <div className="scene-load-note">部分影像暂未加载完成。</div>}
   </div>;
 }

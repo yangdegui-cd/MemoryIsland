@@ -1,0 +1,47 @@
+@font-face {
+  font-family: 'Game House Script';
+  src: url('/fonts/game-house-script.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.game-room .game-room-brand,
+.game-room .game-room-actions {
+  background: transparent;
+  border-radius: 0;
+}
+
+.game-room .game-room-brand {
+  padding: 0;
+}
+
+.game-room .game-room-brand h1 {
+  display: block;
+  font-family: 'Game House Script', 'Kaiti SC', STKaiti, KaiTi, cursive;
+  font-size: clamp(36px, 4vw, 50px);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: .015em;
+  color: #526342;
+  text-shadow: 0 1px 2px #fff9e0a6;
+}
+
+.game-room .game-room-brand h1:lang(zh) {
+  font-size: clamp(30px, 3.5vw, 40px);
+  letter-spacing: .14em;
+}
+
+.game-room .game-room-actions {
+  padding: 8px 0;
+  text-shadow: 0 0 3px #fff5db, 0 1px 1px #fff5db;
+}
+
+.game-room .game-room-actions > a,
+.game-room .game-room-actions > button {
+  color: #34452c;
+}
+
+.game-room .game-room-actions svg {
+  filter: drop-shadow(0 1px 2px #fff5db);
+}

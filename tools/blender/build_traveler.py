@@ -25,11 +25,11 @@ def mat(name, color, metal=0, rough=.5):
     return m
 
 ivory = mat('Ivory woven linen', (.87,.86,.77), 0,.7)
-teal = mat('Deep teal silk', (.045,.22,.25), .08,.4)
+teal = mat('Deep teal silk', (.028,.14,.18), .12,.33)
 lining = mat('Cape lining', (.14,.36,.37), 0,.6)
 gold = mat('Brushed champagne gold', (.67,.46,.19), .72,.28)
 leather = mat('Midnight leather', (.028,.065,.085), .06,.57)
-skin = mat('Warm porcelain skin', (.81,.59,.43), 0,.62)
+skin = mat('Warm porcelain skin', (.87,.68,.56), 0,.48)
 hair = mat('Moon silver hair', (.78,.82,.8), .07,.34)
 hairshade = mat('Silver strand shadows', (.45,.56,.58), .05,.47)
 eye = mat('Teal eyes', (.025,.23,.24), .1,.2)
@@ -112,9 +112,11 @@ def link(name,a,b,r1,r2,material,bind,vertices=20):
     return finish(o,material,bind)
 
 def ribbon(name,points,radius,material,bind='chest'):
-    c=bpy.data.curves.new(name,'CURVE'); c.dimensions='3D'; c.resolution_u=8; c.bevel_depth=radius; c.bevel_resolution=3
+    c=bpy.data.curves.new(name,'CURVE'); c.dimensions='3D'; c.resolution_u=16; c.bevel_depth=radius; c.bevel_resolution=4
     sp=c.splines.new('BEZIER'); sp.bezier_points.add(len(points)-1)
-    for p,co in zip(sp.bezier_points,points): p.co=co; p.handle_left_type='AUTO'; p.handle_right_type='AUTO'
+    for i,(p,co) in enumerate(zip(sp.bezier_points,points)):
+        p.co=co; p.handle_left_type='AUTO'; p.handle_right_type='AUTO'
+        if 'hair' in name.lower() or 'lock' in name.lower() or 'fringe' in name.lower(): p.radius=max(.025,1-(i/max(1,len(points)-1))**1.25)
     o=bpy.data.objects.new(name,c); bpy.context.collection.objects.link(o)
     bpy.context.view_layer.objects.active=o; o.select_set(True); bpy.ops.object.convert(target='MESH'); o=bpy.context.object
     return finish(o,material,bind)
@@ -126,7 +128,7 @@ rings('Champagne waist sash',[(1.035,.20,.13,0),(1.065,.20,.13,0)],gold,'pelvis'
 rings('Layered ivory skirt',[(.77,.30,.21,0),(.81,.28,.20,0),(.98,.215,.15,0),(1.04,.19,.13,0)],ivory,'pelvis')
 for x in [-1,1]:
     ribbon('Gold tunic seam',[(x*.14,.105,1.08),(x*.155,.13,1.27),(x*.12,.105,1.47)],.006,gold,'chest')
-    link('Shoulder mantle',(x*.16,0,1.49),(x*.29,-.005,1.47),.14,.115,teal,'chest')
+    uv('Soft tailored shoulder',(x*.22,-.01,1.47),(.105,.12,.075),teal,'chest',32)
     ribbon('Shoulder gold trim',[(x*.12,-.1,1.51),(x*.24,-.10,1.50),(x*.32,-.04,1.47)],.009,gold)
 uv('Neck',(0,0,1.61),(.073,.073,.125),skin,'neck')
 uv('Face',(0,.014,1.81),(.155,.138,.205),skin,'head',32)
@@ -139,10 +141,16 @@ for side in [-1,1]:
     uv('Eyelight',(side*.052,.155,1.839),(.004,.002,.006),ivory,'head',12)
 # Sculpted crown with curved tapered hair locks, separate back strands.
 uv('Silver hair crown',(0,-.014,1.88),(.17,.15,.17),hair,'head',32)
-for i in range(15):
-    a=math.pi + i/14*math.pi
+# Overlapping swept crown strands break the helmet-like smooth cap.
+for j in range(23):
+    a=(j/22-.5)*math.pi*.9
+    x=math.sin(a)*.155
+    ribbon('Swept crown hair',[(x*.35,.015,2.047),(x*.84,-.065,2.015),(x,-.14,1.90),(x*1.03,-.16,1.77)],.009,hair if j%4 else hairshade,'head')
+
+for i in range(41):
+    a=math.pi + i/40*math.pi
     x=.145*math.cos(a); y=.12*math.sin(a)
-    ribbon('Flowing silver lock',[(x,y,1.91),(x*1.1,y-.04,1.79),(x*1.18,y-.045,1.61),(x*1.35,y-.015,1.50+(i%3)*.025)],.027 if i%2 else .032,hair if i%3 else hairshade,'head')
+    ribbon('Flowing silver lock',[(x,y,1.91),(x*1.1,y-.04,1.79),(x*1.18+.025*math.sin(i),y-.07,1.60),(x*1.55+.045*math.sin(i*.7),y-.08,1.27+(i%7)*.035)],.014 if i%2 else .020,hair if i%3 else hairshade,'head')
 for side in [-1,1]:
     ribbon('Face framing hair',[(side*.11,.09,1.96),(side*.147,.12,1.83),(side*.153,.09,1.64),(side*.17,.045,1.60)],.024,hair,'head')
     ribbon('Swept fringe',[(side*.01,.11,2.00),(side*.07,.147,1.94),(side*.125,.13,1.84)],.025,hair,'head')
@@ -152,9 +160,9 @@ for side in [-1,1]:
 for side,x in [('L',1),('R',-1)]:
     up='upper_arm.'+side; fore='forearm.'+side; hand='hand.'+side
     thigh='thigh.'+side; shin='shin.'+side; foot='foot.'+side
-    link('Ivory upper sleeve',(x*.255,0,1.46),(x*.37,.015,1.23),.068,.096,ivory,up)
+    sleeve=uv('Tailored upper sleeve',(x*.305,0,1.355),(.079,.082,.152),ivory,up,32); sleeve.rotation_euler.y=-x*.30
     uv('Elbow',(x*.37,.015,1.22),(.064,.064,.067),skin,fore)
-    link('Silk forearm sleeve',(x*.37,.02,1.22),(x*.39,.06,1.04),.056,.068,ivory,fore)
+    uv('Tapered silk sleeve',(x*.38,.04,1.13),(.061,.063,.122),ivory,fore,32)
     link('Gold cuff',(x*.39,.055,1.06),(x*.39,.06,1.025),.063,.063,gold,fore)
     uv('Hand',(x*.394,.075,.978),(.046,.034,.074),skin,hand)
     for f in range(4):
@@ -169,14 +177,14 @@ for side,x in [('L',1),('R',-1)]:
 
 # Two-layer cape, cut hem, scalloped border and gold embroidered stars.
 def cape_mesh(name, material, dy=0):
-    rows,cols=16,20; verts=[]
+    rows,cols=30,40; verts=[]
     for row in range(rows):
-        t=row/(rows-1); z=1.49-t*.89
-        width=.24+t*.16; y=-.135-t*.19+dy
+        t=row/(rows-1); z=1.49-t*.86
+        width=.24+t*.34; y=-.135-t*.25+dy
         for col in range(cols):
             u=col/(cols-1)*2-1
-            zz=z+(abs(u)*.08 if row==rows-1 else 0)
-            verts.append((u*width,y-.025*math.cos(u*math.pi*4)*(t+.1),zz))
+            zz=z+t**5*(abs(u)*.10+.10*math.cos(u*math.pi*3))
+            verts.append((u*width-.24*t*t,y-.055*math.cos(u*math.pi*3)*(t+.1),zz))
     faces=[]
     for i in range(rows-1):
         for j in range(cols-1):
@@ -184,12 +192,34 @@ def cape_mesh(name, material, dy=0):
     me=bpy.data.meshes.new(name); me.from_pydata(verts,[],faces); me.update(); o=bpy.data.objects.new(name,me); bpy.context.collection.objects.link(o)
     return finish(o,material,lambda p:'cape' if p.z>1.0 else 'cape_tip')
 cape_mesh('Teal outer cloak',teal,-.009); cape_mesh('Pale silk cloak lining',lining,.007)
+# Draped ivory panels with asymmetric split tails and fine champagne edging.
 for side in [-1,1]:
-    ribbon('Cape embroidered edge',[(side*.24,-.15,1.48),(side*.29,-.24,1.19),(side*.34,-.29,.95),(side*.40,-.335,.68)],.008,gold,'cape')
-ribbon('Cape gold hem',[(-.4,-.34,.68),(-.22,-.35,.615),(0,-.35,.60),(.22,-.35,.615),(.4,-.34,.68)],.009,gold,'cape_tip')
+    verts=[]; rows=28; cols=14
+    for row in range(rows):
+        t=row/(rows-1)
+        for col in range(cols):
+            u=col/(cols-1); x=side*(.035+u*(.20+.30*t))-.24*t*t
+            z=1.48-t*(.68+.18*u)+.06*math.sin(u*math.pi)*t**4
+            y=-.162-t*.25-.055*math.cos((x+.24*t*t)/(.24+.34*t)*math.pi*3)*(t+.1)-.018
+            verts.append((x,y,z))
+    faces=[]
+    for row in range(rows-1):
+        for col in range(cols-1):
+            k=row*cols+col;faces.append((k,k+1,k+cols+1,k+cols))
+    me=bpy.data.meshes.new('Draped silk panel');me.from_pydata(verts,[],faces);me.update()
+    ob=bpy.data.objects.new('Ivory split cloak tail',me);bpy.context.collection.objects.link(ob)
+    finish(ob,ivory,lambda p:'cape' if p.z>1 else 'cape_tip')
+    for edge in [0,cols-1]:
+        ribbon('Panel gold embroidered border',[verts[row*cols+edge] for row in range(0,rows,3)],.0045,gold,'cape')
+
 for cx,cz,r in [(0,1.29,.075),(-.16,.96,.035),(.17,.82,.045),(0,.73,.027)]:
     b='cape' if cz>1 else 'cape_tip'
     ribbon('Four point star embroidery',[(cx,-.37,cz+r),(cx+r*.32,-.37,cz+r*.26),(cx+r,-.37,cz),(cx+r*.25,-.37,cz-r*.25),(cx,-.37,cz-r),(cx-r*.25,-.37,cz-r*.25),(cx-r,-.37,cz),(cx-r*.25,-.37,cz+r*.25),(cx,-.37,cz+r)],.004,gold,b)
+for side in [-1,1]:
+ for j in range(4):
+  z=1.22-j*.14;x=side*(.15+j*.015);y=-.22-(1.22-z)*.25-.045
+  b='cape' if z>1 else 'cape_tip'
+  ribbon('Silk leaf embroidery',[(x,y,z-.04),(x+side*.035,y-.006,z),(x,y,z+.045),(x-side*.018,y-.006,z),(x,y,z-.04)],.0028,gold,b)
 uv('Moon clasp',(0,-.16,1.49),(.045,.018,.045),gold,'chest')
 uv('Teal clasp jewel',(0,-.181,1.49),(.023,.009,.025),teal,'chest')
 # Satchel adds a readable asymmetric silhouette from the back.
@@ -241,7 +271,7 @@ bpy.ops.object.camera_add(location=(3,-5,2.6)); cam=bpy.context.object; cam.name
 for loc,power,size in [((2,-3,4),450,4),((-2,-1,3),220,3),((0,3,3),350,3)]:
     bpy.ops.object.light_add(type='AREA',location=loc); lamp=bpy.context.object; lamp.data.energy=power; lamp.data.shape='DISK'; lamp.data.size=size; lamp.rotation_euler=(Vector((0,0,1))-lamp.location).to_track_quat('-Z','Y').to_euler()
 scene.world.color=(.16,.2,.24)
-scene.render.engine='CYCLES'; scene.cycles.samples=24
+scene.render.engine='CYCLES'; scene.cycles.samples=16
 scene.render.resolution_x=700; scene.render.resolution_y=900; scene.render.resolution_percentage=100
 scene.render.image_settings.file_format='PNG'; scene.render.film_transparent=True
 scene.render.filepath=str(ROOT/'outputs/river-traveler-preview.png')

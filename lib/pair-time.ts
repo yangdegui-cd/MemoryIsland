@@ -1,0 +1,4 @@
+export const PRIMARY_ZONE_KEY='island-primary-time-zone';
+export function dateInZone(zone:string,instant=new Date()){const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(instant);const part=(key:string)=>parts.find(p=>p.type===key)?.value;return `${part('year')}-${part('month')}-${part('day')}`;}
+export function primaryToday(){try{const zone=typeof window==='undefined'?undefined:localStorage.getItem(PRIMARY_ZONE_KEY);return dateInZone(zone||Intl.DateTimeFormat().resolvedOptions().timeZone);}catch{return dateInZone('UTC');}}
+export function validTimeZone(zone:unknown):zone is string{if(typeof zone!=='string'||zone.length>80)return false;try{new Intl.DateTimeFormat('en',{timeZone:zone}).format();return true;}catch{return false;}}
