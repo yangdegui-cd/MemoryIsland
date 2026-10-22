@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { Entry } from './data';
-import { roomBounds, palaceScale, containCamera } from './albumRoom';
+import { palaceBounds, containCamera } from './albumRoom';
 
 type Props = { photos: Entry[]; onSelect: (photo: Entry) => void };
 const paperVertex = `
@@ -99,7 +98,7 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     controls.rotateSpeed = .32;
     controls.zoomSpeed = .52;
     controls.panSpeed = .46;
-    controls.minDistance = 8;
+    controls.minDistance = 34;
     controls.maxDistance = 68;
     controls.minPolarAngle = Math.PI * .30;
     controls.maxPolarAngle = Math.PI * .54;
@@ -142,296 +141,45 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     scene.background = new THREE.Color('#35271a');
     scene.fog = new THREE.FogExp2('#35271a', .003);
 
-    const stone = new THREE.MeshStandardMaterial({ color: '#b8a68a', roughness: .82, metalness: .12 });
+    // A single six-sided box. The selected artwork is projected onto its
+    // interior faces using one continuous panoramic UV field (no wall seams).
     const bronze = new THREE.MeshStandardMaterial({ color: '#997045', roughness: .47, metalness: .68 });
-    stone.onBeforeCompile = shader => {
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvStonePosition = position;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vStonePosition;').replace('#include <color_fragment>', `#include <color_fragment>
-        float vein = sin(vStonePosition.y * 11. + sin(vStonePosition.x * 17. + vStonePosition.z * 9.) * 2. + sin(vStonePosition.y * 3.) * 4.);
-        float line = pow(abs(vein), 28.);
-        diffuseColor.rgb *= .88 + line * .12;
-      `);
-    };
-    materials.add(stone); materials.add(bronze);
-    scene.add(new THREE.HemisphereLight('#d7b488', '#81715c', 3.0));
-    const sunlight = new THREE.DirectionalLight('#ffe1a2', 3.2);
-    sunlight.position.set(9, 12, -17); scene.add(sunlight);
-    function box(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
-      const mesh = keep(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat));
-      mesh.position.set(x, y, z); scene.add(mesh); return mesh;
-    }
-    const plaster = new THREE.MeshStandardMaterial({ color: '#857561', roughness: .9 });
-    const inset = new THREE.MeshStandardMaterial({ color: '#554a40', roughness: .72 });
-    const glass = new THREE.MeshBasicMaterial({ color: '#ffe5ae', toneMapped: false });
-    materials.add(plaster); materials.add(inset); materials.add(glass);
-    // A continuous inward-facing box closes all six sides, including the floor
-    // underneath its reflective finish. Decorative geometry lives inside it.
-    const roomSize = roomBounds.getSize(new THREE.Vector3());
-    const roomCenter = roomBounds.getCenter(new THREE.Vector3());
-    const interiorMaterial = plaster.clone();
-    interiorMaterial.side = THREE.BackSide;
-    const enclosure = keep(new THREE.Mesh(new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z), interiorMaterial));
-    enclosure.position.copy(roomCenter); scene.add(enclosure);
-    // Layered cornices and lower dado panels add depth to the enclosing shell.
-    for (const side of [-1, 1]) {
-      for (let tier = 0; tier < 3; tier++) {
-        box(.28 + tier * .15, .16, 64.8, bronze, side * (11.75 - tier * .08), 10.1 + tier * .24, -10.5);
-      }
-      for (const y of [-3.6, -.8, 9.3, 13.4]) box(.25, .14, 65, bronze, side * 11.6, y, -10);
-      for (let bay = 0; bay < 6; bay++) {
-        const z = 16 - bay * 9;
-        box(.16, 10, 5.7, inset, side * 11.58, 4.3, z);
-        box(.45, .22, 6.1, stone, side * 11.35, -.9, z);
-        for (const dz of [-2, 0, 2]) {
-          box(.12, 1.8, 1.65, inset, side * 11.7, -2.4, z + dz);
-          for (const yy of [-3.35, -1.45]) box(.2, .07, 1.8, bronze, side * 11.55, yy, z + dz);
-        }
-        // Tall luminous panes sit in the right wall, with real mullions.
-        if (side === 1) {
-          const windowShape = new THREE.Shape();
-          windowShape.moveTo(-2.35, .25); windowShape.lineTo(2.35, .25);
-          windowShape.lineTo(2.35, 7.2); windowShape.absarc(0, 7.2, 2.35, 0, Math.PI, false);
-          windowShape.lineTo(-2.35, .25);
-          const pane = keep(new THREE.Mesh(new THREE.ShapeGeometry(windowShape), glass));
-          pane.rotation.y = -Math.PI / 2; pane.position.set(11.45, 0, z); scene.add(pane);
-          const crown = Array.from({ length: 33 }, (_, i) => {
-            const a = i / 32 * Math.PI;
-            return new THREE.Vector3(11.26, 7.2 + Math.sin(a) * 2.5, z + Math.cos(a) * 2.5);
-          });
-          scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(crown), 32, .10, 6, false), bronze)));
-          for (const dz of [-2.5, 0, 2.5]) box(.32, 9.1, .10, bronze, 11.28, 4.6, z + dz);
-          for (const y of [.1, 6, 9.1]) box(.32, .12, 5.1, bronze, 11.26, y, z);
-          const glow = new THREE.PointLight('#ffcf81', 155, 48, 2);
-          glow.position.set(9.8, 6, z); scene.add(glow);
-        } else {
-          for (const dz of [-2.85, 2.85]) box(.25, 10.2, .10, bronze, -11.4, 4.3, z + dz);
-          for (const y of [-.8, 9.4]) box(.25, .10, 5.8, bronze, -11.4, y, z);
-        }
-      }
-    }
-    // Gilded coffers tie the ceiling to the same columns and floor.
-    for (let z = 18; z > -43; z -= 4.5) {
-      box(23.5, .16, .12, bronze, 0, 13.65, z);
-      for (const x of [-8, -4, 0, 4, 8]) {
-        box(.10, .16, 4.5, bronze, x, 13.65, z - 2.25);
-        box(3.5, .08, 3.9, inset, x + 1.85, 13.85, z - 2.25);
-        for (const dx of [-1.55, 1.55]) box(.06, .12, 3.6, bronze, x + 1.85 + dx, 13.74, z - 2.25);
-        for (const dz of [-1.8, 1.8]) box(3.15, .12, .06, bronze, x + 1.85, 13.74, z - 2.25 + dz);
-      }
-    }
-    for (const x of [-8, -4, 0, 4, 8]) {
-      box(3.5, 11, .2, inset, x, 4, -42.55);
-      for (const dx of [-1.75, 1.75]) box(.09, 11, .3, bronze, x + dx, 4, -42.35);
-      for (const y of [-1.5, 9.5]) box(3.6, .09, .3, bronze, x, y, -42.35);
-    }
-    // Share the fluted shaft geometry across every column.
-    const shaft = new THREE.CylinderGeometry(.48, .62, 12.1, 120, 8);
-    const shaftPosition = shaft.attributes.position;
-    for (let v = 0; v < shaftPosition.count; v++) {
-      const x = shaftPosition.getX(v), z = shaftPosition.getZ(v);
-      const flute = 1 - .065 * (1 + Math.cos(Math.atan2(z, x) * 20));
-      shaftPosition.setX(v, x * flute); shaftPosition.setZ(v, z * flute);
-    }
-    shaft.computeVertexNormals();
-    const volute = new THREE.TorusGeometry(.23, .07, 8, 24);
-    // Repeating carved pilasters and arch ribs give camera movement real parallax.
-    for (let i = 0; i < 7; i++) {
-      const z = 20 - i * 9;
-      for (const side of [-1, 1]) {
-        const x = side * 10.7;
-        const column = keep(new THREE.Mesh(shaft, stone));
-        column.position.set(x, 2.7, z); scene.add(column);
-        for (const y of [-3.5, -3.1, 8.9, 9.2]) {
-          const ring = keep(new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .16, 24), bronze));
-          ring.position.set(x, y, z); scene.add(ring);
-        }
-        box(1.55, .42, 1.65, bronze, x, -3.2, z);
-        box(1.4, .2, 1.5, bronze, x, 9.3, z);
-        box(1.7, .16, 1.7, stone, x, 9.55, z);
-        const capital = keep(new THREE.Mesh(new THREE.CylinderGeometry(.77, .47, .65, 20), bronze));
-        capital.position.set(x, 8.55, z); scene.add(capital);
-        for (const dx of [-.55, .55]) {
-          const scroll = keep(new THREE.Mesh(volute, bronze));
-          scroll.position.set(x + dx, 8.9, z + .6); scene.add(scroll);
-        }
-        for (const offset of [-.28, 0, .28]) box(.045, 11.8, .065, bronze, x + offset, 2.7, z + .58);
-      }
-      const curve = new THREE.EllipseCurve(0, 9.3, 10.7, 4.7, 0, Math.PI, false, 0);
-      const points = curve.getPoints(56).map(v => new THREE.Vector3(v.x, v.y, z));
-      const arch = keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, .115, 6, false), bronze));
-      scene.add(arch);
-    }
-
-    const candleMaterial = new THREE.MeshBasicMaterial({ color: '#ffd18a', toneMapped: false });
-    materials.add(candleMaterial);
-    const candleGeometry = new THREE.SphereGeometry(.055, 6, 8);
-    for (const side of [-1, 1]) {
-      for (let z = 18; z > -42; z -= 9) {
-        box(.45, .14, .7, bronze, side * 10.05, .9, z);
-        for (const dz of [-.24, 0, .24]) {
-          box(.045, .65, .045, bronze, side * 9.9, 1.2, z + dz);
-          const flame = keep(new THREE.Mesh(candleGeometry, candleMaterial));
-          flame.position.set(side * 9.9, 1.57, z + dz); flame.scale.y = 2.8; scene.add(flame);
-        }
-      }
-    }
-    // Gold scrollwork sits on the actual wall surfaces, with parallax and depth.
-    const scrollPoints = Array.from({ length: 40 }, (_, i) => {
-      const a = i / 39 * Math.PI * 3.4, r = .44 * (1 - i / 45);
-      return new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0);
+    materials.add(bronze);
+    scene.add(new THREE.HemisphereLight('#ffe2af', '#493623', 2));
+    const roomMaterial = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: { uPalace: { value: null }, uReady: { value: 0 } },
+      vertexShader: `varying vec3 vRoom; void main(){
+        vRoom = (modelMatrix * vec4(position,1.)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.);
+      }`,
+      fragmentShader: `uniform sampler2D uPalace; uniform float uReady; varying vec3 vRoom;
+        void main(){
+          vec3 ray = normalize(vRoom - vec3(0., 7., 18.));
+          vec2 uv = vec2(atan(ray.x, -ray.z) / 6.2831853 + .5, asin(clamp(ray.y,-1.,1.)) / 3.14159265 + .5);
+          vec3 color = texture2D(uPalace, uv).rgb;
+          gl_FragColor = vec4(mix(vec3(.12,.08,.04),color,uReady),1.);
+          #include <colorspace_fragment>
+        }`,
     });
-    const scrollGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(scrollPoints), 40, .028, 5, false);
-    const wallScrolls = keep(new THREE.InstancedMesh(scrollGeometry, bronze, 96));
-    const scrollTransform = new THREE.Object3D();
-    let ornamentIndex = 0;
-    for (const side of [-1, 1]) for (let bay = 0; bay < 6; bay++) {
-      for (const y of [1.2, 4.7, 8, 10]) for (const dz of [-2.7, 2.7]) {
-        scrollTransform.position.set(side * 11.1, y, 16 - bay * 9 + dz);
-        scrollTransform.rotation.set(0, side * Math.PI / 2, dz > 0 ? Math.PI : 0);
-        scrollTransform.updateMatrix(); wallScrolls.setMatrixAt(ornamentIndex++, scrollTransform.matrix);
-      }
-    }
-    scene.add(wallScrolls);
-    // Rose tracery below each high window crown.
-    const traceryGeometry = new THREE.TorusGeometry(.42, .045, 6, 32);
-    for (let bay = 0; bay < 6; bay++) for (let petal = 0; petal < 6; petal++) {
-      const a = petal / 6 * Math.PI * 2;
-      const tracery = keep(new THREE.Mesh(traceryGeometry, bronze));
-      tracery.rotation.y = Math.PI / 2;
-      tracery.position.set(11.18, 8 + Math.sin(a) * .53, 16 - bay * 9 + Math.cos(a) * .53);
-      scene.add(tracery);
-    }
-    // A continuous barrel vault spans the nave; ribs sit just below its surface.
-    const vaultVertices: number[] = [], vaultIndices: number[] = [];
-    for (let row = 0; row < 2; row++) {
-      for (let segment = 0; segment <= 64; segment++) {
-        const a = segment / 64 * Math.PI;
-        vaultVertices.push(Math.cos(a) * 10.65, 9.3 + Math.sin(a) * 4.62, row ? 21.8 : -42.8);
-      }
-    }
-    for (let i = 0; i < 64; i++) vaultIndices.push(i, i + 1, i + 65, i + 1, i + 66, i + 65);
-    const vaultGeometry = new THREE.BufferGeometry();
-    vaultGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vaultVertices, 3));
-    vaultGeometry.setIndex(vaultIndices); vaultGeometry.computeVertexNormals();
-    const vaultMaterial = new THREE.MeshStandardMaterial({ color: '#71604c', side: THREE.DoubleSide, roughness: .76, metalness: .15 });
-    scene.add(keep(new THREE.Mesh(vaultGeometry, vaultMaterial)));
-    // A layered ceremonial doorway anchors the far end of the hall.
-    const doorShape = new THREE.Shape();
-    doorShape.moveTo(-2,-2.5); doorShape.lineTo(2,-2.5); doorShape.lineTo(2,5);
-    doorShape.absarc(0,5,2,0,Math.PI,false); doorShape.lineTo(-2,-2.5);
-    const farDoor = keep(new THREE.Mesh(new THREE.ShapeGeometry(doorShape), glass));
-    farDoor.position.z = -42.1; scene.add(farDoor);
-    for(let frame=0;frame<3;frame++) {
-      const r = 2.2 + frame * .35;
-      const points = [new THREE.Vector3(-r,-2.5,-41.9+frame*.1), ...Array.from({length:33},(_,i)=> {
-        const a=Math.PI-i/32*Math.PI;
-        return new THREE.Vector3(Math.cos(a)*r,5+Math.sin(a)*r,-41.9+frame*.1);
-      }),new THREE.Vector3(r,-2.5,-41.9+frame*.1)];
-      scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, false, 'centripetal'),64,.12,8,false),frame===1?stone:bronze)));
-    }
-    for(let step=0;step<7;step++) box(8-step*.35,.2,3.5-step*.4,stone,0,-3.85+step*.2,-40.5-step*.15);
-    // Carved stone balustrades, with vase-shaped spindles and broad handrails.
-    const profile = [[.22,0],[.22,.10],[.14,.16],[.11,.28],[.20,.48],[.21,.62],[.12,.85],[.12,.96],[.23,1.04],[.23,1.12]].map(([r,y]) => new THREE.Vector2(r,y));
-    const balusterGeometry = new THREE.LatheGeometry(profile, 16);
-    const balusters = keep(new THREE.InstancedMesh(balusterGeometry, stone, 100));
-    const balusterTransform = new THREE.Object3D(); let bi = 0;
-    for (const side of [-1, 1]) {
-      box(2.7, .38, 64, stone, side * 10.55, 5.9, -10.5);
-      for (const y of [6.12, 7.4]) box(.52, .20, 64, stone, side * 9.17, y, -10.5);
-      box(.56, .055, 64, bronze, side * 9.17, 7.52, -10.5);
-      for (let i=0;i<50;i++) {
-        balusterTransform.position.set(side * 9.17, 6.22, -42 + i * 1.28);
-        balusterTransform.updateMatrix(); balusters.setMatrixAt(bi++, balusterTransform.matrix);
-      }
-      // Broad arcade openings support the upper gallery; thick voussoirs replace bars.
-      for (let bay=0;bay<7;bay++) {
-        const z = 17 - bay * 9;
-        for (const dz of [-4.15,4.15]) {
-          box(.95, 6.3, .75, stone, side * 9.45, -.85, z+dz);
-          box(1.2,.26,1.1,bronze,side * 9.45,2.2,z+dz);
-        }
-        const archPoints = Array.from({length:49},(_,i)=> {
-          const a = i/48*Math.PI;
-          return new THREE.Vector3(side*9.45,2.2+Math.sin(a)*3.15,z+Math.cos(a)*4.15);
-        });
-        scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(archPoints),48,.30,8,false),stone)));
-        const trimPoints = archPoints.map(p=>new THREE.Vector3(p.x-side*.34,p.y+.08,p.z));
-        scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trimPoints),48,.055,6,false),bronze)));
-        box(.9,.58,.65,bronze,side*9.45,5.3,z);
-      }
-    }
-    scene.add(balusters);
-    // Two flights lead from the ground floor into the upper galleries.
-    for (const side of [-1, 1]) {
-      for (let step = 0; step < 22; step++) {
-        const top = -4 + (step + 1) * 9.71 / 22;
-        box(2.6, top + 4, .75, stone, side * 10.1, (top - 4) / 2, 15 - step * .72);
-        box(2.6, .035, .075, bronze, side * 10.1, top + .02, 15.32 - step * .72);
-      }
-      const handrail = [new THREE.Vector3(side * 8.8, -2.7, 15.5), new THREE.Vector3(side * 8.8, 7, -.5)];
-      scene.add(keep(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(handrail), 16, .065, 6, false), bronze)));
-      for (let post = 0; post < 12; post++) {
-        const stairBaluster = keep(new THREE.Mesh(balusterGeometry, stone));
-        stairBaluster.position.set(side * 8.8, -3.9 + post * 9.7 / 11, 15.5 - post * 16 / 11); scene.add(stairBaluster);
-      }
-    }
-    // A real mirror below the scene reflects moving photographs and architecture.
-    const mirror = new Reflector(new THREE.PlaneGeometry(29, 86), {
-      color: new THREE.Color('#5b4632'), textureWidth: 768, textureHeight: 768, clipBias: .003,
+    const roomSize = palaceBounds.getSize(new THREE.Vector3());
+    const room = keep(new THREE.Mesh(new THREE.BoxGeometry(roomSize.x, roomSize.y, roomSize.z), roomMaterial));
+    room.position.copy(palaceBounds.getCenter(new THREE.Vector3())); scene.add(room);
+    load('/art/palace-reference.png', texture => {
+      texture.wrapS = THREE.RepeatWrapping;
+      roomMaterial.uniforms.uPalace.value = texture;
+      roomMaterial.uniforms.uReady.value = 1;
     });
-    keep(mirror); mirror.rotation.x = -Math.PI / 2; mirror.position.set(0, -3.97, -10.5); scene.add(mirror);
-    const floor = keep(new THREE.Mesh(new THREE.PlaneGeometry(29, 86), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false,
-      vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: `
-        varying vec2 vUv;
-        float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-        float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
-        float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.13+7.4;a*=.5;}return v;}
-        void main(){vec2 p=vUv*vec2(22.,64.);float seams=step(.994,fract(p.x*.5))+step(.994,fract(p.y*.5));float vein=1.-smoothstep(.003,.019,abs(fbm(p*1.8)-.48));vec3 col=mix(vec3(.023,.018,.014),vec3(.14,.1,.052),vein*.12+seams*.10);gl_FragColor=vec4(col,.72);}`,
-
-    })));
-    floor.rotation.x = -Math.PI / 2; floor.position.copy(mirror.position).y += .012; scene.add(floor);
-
-    const sunlightPosition = new THREE.Vector3(10, 10.5, -19);
-    const glowBytes = new Uint8Array(128 * 128 * 4);
-    for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
-      const i = (y * 128 + x) * 4, d = Math.hypot((x - 63.5) / 64, (y - 63.5) / 64);
-      glowBytes.set([255, 198, 106, Math.max(0, Math.round(Math.exp(-d * d * 4.8) * 190 - 1))], i);
+    const dustData = new Float32Array(260 * 3);
+    for(let i=0;i<260;i++) {
+      dustData[i*3] = Math.sin(i*12.9)*25;
+      dustData[i*3+1] = Math.cos(i*4.1)*20+23;
+      dustData[i*3+2] = Math.sin(i*7.7)*60-20;
     }
-    const glowMap = new THREE.DataTexture(glowBytes, 128, 128);
-    glowMap.needsUpdate = true; textures.add(glowMap);
-    const halo = keep(new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, color: '#ffd6a0', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .65 })));
-    halo.position.copy(sunlightPosition); halo.scale.set(18, 18, 1); scene.add(halo);
-    for (let i = 0; i < 7; i++) {
-      const source = sunlightPosition.clone().add(new THREE.Vector3((i % 2) * .7, (i % 3 - 1) * 1.1, .2));
-      const end = new THREE.Vector3(-9 + i * .3, -3.9, 7 + i * .8);
-      const beam = keep(new THREE.Mesh(new THREE.ConeGeometry(.9 + i * .07, source.distanceTo(end), 24, 1, true), new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-        vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-        fragmentShader: 'varying vec2 vUv;void main(){float a=pow(sin(vUv.x*3.14159),2.);float f=pow(vUv.y,.3)*(1.-smoothstep(.95,1.,vUv.y));gl_FragColor=vec4(1.,.68,.29,a*f*.038);}',
-      })));
-      beam.position.copy(source).add(end).multiplyScalar(.5);
-      beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), source.clone().sub(end).normalize());
-      scene.add(beam);
-    }
-
-    const dustData = new Float32Array(520 * 3);
-    for (let i = 0; i < 520; i++) {
-      dustData[i * 3] = Math.sin(i * 12.9898) * 11;
-      dustData[i * 3 + 1] = Math.cos(i * 4.1414) * 8 + 3;
-      dustData[i * 3 + 2] = Math.sin(i * 7.717) * 25 - 10;
-    }
-    const dustGeometry = new THREE.BufferGeometry(); dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustData, 3));
-    const dust = keep(new THREE.Points(dustGeometry, new THREE.PointsMaterial({ map: glowMap, color: '#ffcb77', size: .06, transparent: true, opacity: .54, depthWrite: false, blending: THREE.AdditiveBlending })));
+    const dustGeometry = new THREE.BufferGeometry();
+    dustGeometry.setAttribute('position',new THREE.BufferAttribute(dustData,3));
+    const dust = keep(new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#ffdfa4',size:.045,transparent:true,opacity:.45,depthWrite:false})));
     scene.add(dust);
-
-    // Expand architecture as one coherent palace, anchored to the same floor.
-    // Photographs retain human-scale sizes so the hall reads as monumental.
-    const palace = new THREE.Group();
-    for (const object of [...scene.children]) palace.add(object);
-    palace.scale.copy(palaceScale); palace.position.y = 4 * (palaceScale.y - 1);
-    scene.add(palace);
 
     const cards: { mesh: THREE.Mesh; pivot: THREE.Group; material: THREE.ShaderMaterial; phase: number; angles: THREE.Vector3 }[] = [];
     const all: Entry[] = photos.length ? photos.slice(0, 60) : Array.from({ length: 44 }, (_, i) => ({ id: `sample-${i}`, kind: 'sample', data: {}, createdAt: 0 }));
@@ -526,7 +274,6 @@ export default function MemoryScene({ photos, onSelect }: Props) {
     return () => {
       disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', pointerDown); renderer.domElement.removeEventListener('pointerup', pointerUp);
-      mirror.getRenderTarget().dispose();
       geometry.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
       bloom.dispose(); composer.dispose(); renderer.dispose();
       if (renderer.domElement.parentNode === root) root.removeChild(renderer.domElement);

@@ -11,7 +11,7 @@ export const palaceBounds = new THREE.Box3(
 );
 // Leave clearance for the near plane, columns and window frames.
 export const cameraBounds = palaceBounds.clone().expandByVector(new THREE.Vector3(-12, -2, -3));
-export const focusBounds = new THREE.Box3(new THREE.Vector3(-5, 5, -65), new THREE.Vector3(5, 30, -15));
+export const focusBounds = new THREE.Box3(new THREE.Vector3(-5, 5, -32), new THREE.Vector3(5, 22, -18));
 
 export function containCamera(position: THREE.Vector3, target: THREE.Vector3) {
   const x = target.x, y = target.y, z = target.z;
