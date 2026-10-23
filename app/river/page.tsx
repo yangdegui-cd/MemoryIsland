@@ -9,6 +9,7 @@ import './river.css';
 import {useIslandLanguage} from '../components/useIslandLanguage';
 import {usePeople} from '../components/PeopleProvider';
 import {primaryToday} from '../../lib/pair-time';
+import {riverCharacterForIdentity} from './characters';
 
 export default function River() {
   const {primary,userId}=usePeople();
@@ -62,7 +63,7 @@ export default function River() {
     } catch { setFullscreenError(t('无法进入系统全屏，当前仍可在窗口内探索。', 'Unable to enter fullscreen. You can still explore in this window.')); }
   }
   return <section ref={root} className="river-world" aria-label={t('时光走廊游戏场景','Corridor of Time game scene')}>
-    {anchor && <RiverScene language={language} anchor={anchor} chats={chats} teleportTo={teleportTo} paused={!!selected||calendarOpen} direction={direction} strafe={strafe} onNear={setNear} />}
+    {anchor && <RiverScene character={riverCharacterForIdentity(userId)} language={language} anchor={anchor} chats={chats} teleportTo={teleportTo} paused={!!selected||calendarOpen} direction={direction} strafe={strafe} onNear={setNear} />}
     <header className="river-header"><div className="river-brand"><h1>{t('时光走廊','Corridor of Time')}</h1><span>CORRIDOR OF TIME</span></div><div className="river-actions"><TimeCalendar dates={availableDates} language={language} onSelect={teleport} onOpenChange={setCalendarOpen}/><button onClick={fullscreen} aria-label={t('切换全屏','Toggle fullscreen')}><Maximize size={17}/></button><a href="/"><ArrowLeft size={15}/>{t('返回小岛','Back to island')}</a></div></header>
     <div className="river-sample">{loading?t('正在读取聊天…','Loading chats…'):loadError||t(`已收藏 ${chats.reduce((n,c)=>n+c.messages.length,0)} 条聊天` ,`${chats.reduce((n,c)=>n+c.messages.length,0)} messages saved`)} <span>· {t('日期连续，光留住说过的话','A door for every day, a light for every memory')}</span></div>
     {fullscreenError && <button className="river-feedback" onClick={() => setFullscreenError('')}>{fullscreenError} ×</button>}

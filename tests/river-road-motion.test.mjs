@@ -8,8 +8,9 @@ test('paving and piers keep moving toward the camera across each 2.2-unit bounda
     close(roadModuleZ(index,boundary-.01)-roadModuleZ(index,boundary+.01),-.02);
   }
 });
-test('full loop preserves both decorative patterns and supports negative travel',()=>{
+test('full loop preserves piers and the four-module reference paving, including negative travel',()=>{
   assert.equal(ROAD_MODULE_COUNT%6,0);
+  assert.equal(ROAD_MODULE_COUNT%4,0);
   const loop=ROAD_MODULE_COUNT*ROAD_MODULE_LENGTH;
   for(const index of [0,10,13,71]) for(const distance of [-1000,-2.21,0,2.21,1000]) {
     close(roadModuleZ(index,distance),roadModuleZ(index,distance+loop));

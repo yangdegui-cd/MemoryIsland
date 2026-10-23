@@ -1,0 +1,19 @@
+{
+  "width": 4.476502732240437,
+  "height": 6.714754098360656,
+  "bottom": -0.22295081967213115,
+  "glassHalfWidth": 0.9398907103825137,
+  "glassBottom": 0.15737704918032785,
+  "springHeight": 4.607650273224044,
+  "glassRise": 0.8699453551912568,
+  "depth": 0.78,
+  "uvBounds": [
+    0.2900390625,
+    0.056640625,
+    0.419921875,
+    0.7923177083333334
+  ],
+  "crownHeight": 5.722404371584699,
+  "construction": "double-sided textured relief with closed sidewalls",
+  "frameTriangles": 110962
+}

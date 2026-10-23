@@ -43,3 +43,8 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Local Blender save backups and Python bytecode (keep editable .blend sources)
+*.blend[1-9]
+__pycache__/
+*.py[cod]

@@ -1,0 +1,12 @@
+River character models v3
+Original model, outfit, hair and animation assets by Quaternius.
+CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
+https://creativecommons.org/publicdomain/zero/1.0/
+
+https://quaternius.itch.io/universal-base-characters
+https://quaternius.itch.io/modular-character-outfits-fantasy
+https://quaternius.com/packs/universalanimationlibrary.html
+
+Modified for Daily Island: head/outfit assembly, dark colors, Alexx red hair,
+BV long black hair, rest-space animation retargeting, embedded 1K textures.
+Original license notices and source hashes: design/vendor/quaternius/.

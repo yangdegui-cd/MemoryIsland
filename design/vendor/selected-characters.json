@@ -1,0 +1,103 @@
+{
+  "selectedOn": "2026-10-23",
+  "status": "using_existing_quaternius_characters_with_light_jog",
+  "integration": {
+    "runtimeChanged": true,
+    "requiredSourceContents": [
+      "Existing CC0 assets and license records already present in design/vendor/quaternius/"
+    ],
+    "animationContract": [
+      "Idle",
+      "Run"
+    ],
+    "validation": [
+      "Inspect native bind pose, joint axes, skin weights and clothing deformation before retargeting.",
+      "Retarget authored locomotion to the actual selected rig; do not reuse v3 rest-pose assumptions.",
+      "Check feet, knees, pelvis and shoulders through a full movement cycle and during stop and turn transitions.",
+      "Preserve the fixed camera and character anchor, environment movement, bilingual UI and identity mapping.",
+      "Review both models in the actual River scene before claiming visual acceptance."
+    ]
+  },
+  "budget": {
+    "amount": 0,
+    "currency": "USD",
+    "updatedOn": "2026-10-23"
+  },
+  "previousSelectionPurpose": "A and C are visual references only. The user now requests free models; do not purchase or integrate these paid assets.",
+  "freeCandidates": [
+    {
+      "number": "1",
+      "title": "Cool Man",
+      "source": "https://sketchfab.com/3d-models/cool-man-ad14b71697dd4ea7836c1f06c75e5f72",
+      "price": 0,
+      "license": "CC BY 4.0 · 使用时署名"
+    },
+    {
+      "number": "2",
+      "title": "Leather Jacket Cargo Pants Figure 3DModel",
+      "source": "https://www.cgtrader.com/free-3d-models/character/man/leather-jacket-cargo-pants-figure-3dmodel",
+      "price": 0,
+      "license": "Royalty Free（no AI）"
+    },
+    {
+      "number": "3",
+      "title": "Girl in the Skirt (Rigged)",
+      "source": "https://sketchfab.com/3d-models/girl-in-the-skirt-rigged-837499a5328e4ad5ac62a3be3467add8",
+      "price": 0,
+      "license": "CC BY 4.0 · 使用时署名"
+    }
+  ],
+  "previousPaidReferences": {
+    "alexx": {
+      "candidate": "A",
+      "title": "Cyberpunk Male 3D Character Rigged Game Ready",
+      "author": "Gllow3D",
+      "source": "https://www.fab.com/listings/c53bab65-72f2-460d-bf6a-498ffac90488",
+      "sourceFormats": [
+        "FBX",
+        "GLB",
+        "glTF"
+      ],
+      "sourceFile": null,
+      "sourceSha256": null,
+      "animations": "Not confirmed by the listing; inspect the licensed archive.",
+      "appearance": "Preserve the selected black coat and outfit; adapt hair to Alexx's red hair.",
+      "selectionStatus": "visual_reference_only"
+    },
+    "bv": {
+      "candidate": "C",
+      "title": "Stylized Gothic Female Character Rigged Game-Ready Cyberpunk",
+      "author": "VTR3D",
+      "source": "https://www.fab.com/listings/424d5200-b4be-4d08-9a1e-1d88dddec4f3",
+      "sourceFormats": [
+        "FBX"
+      ],
+      "sourceFile": null,
+      "sourceSha256": null,
+      "animations": "The listing explicitly excludes animations.",
+      "appearance": "Preserve the selected gothic outfit; adapt hair toward BV's long black hair.",
+      "selectionStatus": "visual_reference_only"
+    }
+  },
+  "selectionReason": "User chose to retain the existing in-game character set and requested smaller, more natural foot motion.",
+  "characters": {
+    "alexx": {
+      "name": "Alexx",
+      "author": "Quaternius",
+      "source": "design/vendor/quaternius/README.md",
+      "sourceFile": "design/river-alexx-v3.blend",
+      "runtimeAsset": "public/models/river-alexx-v3.glb",
+      "animationRevision": 6,
+      "appearance": "Existing character mesh and outfit retained; faster compact jog, restrained bent-elbow arm swing, shorter steps and low foot lift."
+    },
+    "bv": {
+      "name": "BV",
+      "author": "Quaternius",
+      "source": "design/vendor/quaternius/README.md",
+      "sourceFile": "design/river-bv-v3.blend",
+      "runtimeAsset": "public/models/river-bv-v3.glb",
+      "animationRevision": 6,
+      "appearance": "Existing character mesh and outfit retained; faster compact jog, restrained bent-elbow arm swing, shorter steps and low foot lift."
+    }
+  }
+}

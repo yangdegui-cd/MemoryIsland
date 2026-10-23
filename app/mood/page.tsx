@@ -9,6 +9,7 @@ import {useIslandLanguage} from '../components/useIslandLanguage';
 import {unseal,readImage,type Note} from './crypto';
 import {useMoodRecords} from './records';
 import {usePeople} from '../components/PeopleProvider';
+import './font.css';
 import './mood.css';
 export default function Mood(){
  const identity=usePeople();const author=(id?:string)=>identity.people.find(p=>p.id===id)?.name||'';const {language}=useIslandLanguage();const en=language==='en';const s=useMoodRecords(en);const t=(zh:string,english:string)=>en?english:zh;

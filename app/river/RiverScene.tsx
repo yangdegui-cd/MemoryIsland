@@ -11,15 +11,24 @@ import { Reflector } from 'three/addons/objects/Reflector.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ROAD_MODULE_COUNT, roadModuleZ } from './roadMotion';
 import portalProfile from '../../tools/blender/river-portal-profile.json';
+import referenceProfile from '../../tools/blender/river-reference-profile.json';
+import { portalSurface, animateFrameMaterial, continuousPavingMaterial, softFrameGlow } from './portalEffects';
 import { offsetDate, type RiverChat } from './timeline';
+import { riverCharacters, type RiverCharacter } from './characters';
+import { RIVER_RUN_SPEED, RIVER_GAIT_RATE, RIVER_LANE_LIMIT, riverVelocity, riverFacing } from './locomotion';
 
-type Props = { language: 'zh' | 'en'; anchor: string; chats: RiverChat[]; teleportTo: {date:string;sequence:number}|null; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
+type Props = { character: RiverCharacter; language: 'zh' | 'en'; anchor: string; chats: RiverChat[]; teleportTo: {date:string;sequence:number}|null; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
 const SPACING = 18;
 const PORTAL_OFFSET = 11;
+const PORTAL_SCALE = 1.5;
+const TERRACE_SCALE = 1.2;
+const DOOR_RECESS = 1.15;
+const PORTAL_LATERAL = 4.1 + 2.25 * TERRACE_SCALE;
+const TERRACE_OPENING = 6.05 * TERRACE_SCALE;
 const curve = (z: number) => .0038 * (z - 4) ** 2;
 const stone = '#e5dec9';
 
-export default function RiverScene({ language, anchor, chats, teleportTo, paused, direction, strafe, onNear }: Props) {
+export default function RiverScene({ character, language, anchor, chats, teleportTo, paused, direction, strafe, onNear }: Props) {
   const t = (zh: string, en: string) => language === 'en' ? en : zh;
   const host = useRef<HTMLDivElement>(null);
   const live = useRef({ paused, direction, strafe, onNear, teleportTo });
@@ -57,7 +66,7 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     const ambientOcclusion = new SSAOPass(scene, camera, 640, 360);
     ambientOcclusion.kernelRadius = 7; ambientOcclusion.minDistance = .003; ambientOcclusion.maxDistance = .065;
     composer.addPass(ambientOcclusion);
-    const bloom = new UnrealBloomPass(new T.Vector2(1, 1), .16, .32, 1.5);
+    const bloom = new UnrealBloomPass(new T.Vector2(1, 1), .30, .42, 1.2);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     scene.add(new T.HemisphereLight('#d7eaff', '#9b8465', .78));
@@ -72,24 +81,18 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     const materials: T.Material[] = [];
     const geometries: T.BufferGeometry[] = [];
     const textures: T.Texture[] = [];
+    const portalClock = { value: 0 };
     function material(color: T.ColorRepresentation, extra: T.MeshStandardMaterialParameters = {}) {
       const m = new T.MeshStandardMaterial({ color, roughness: .62, metalness: .12, ...extra }); materials.push(m); return m;
     }
     const marble = material(stone);
     const gold = material('#bca371', { metalness: .65, roughness: .3 });
     const shadowStone = material('#839394');
-    const white = material('#e9ebe2');
-    const teal = material('#355f68');
-    const dark = material('#253c49');
-    const skin = material('#e7c8ac');
     function mesh(geometry: T.BufferGeometry, mat: T.Material, parent: T.Object3D, x = 0, y = 0, z = 0) {
       geometries.push(geometry); const object = new T.Mesh(geometry, mat); object.position.set(x, y, z); parent.add(object); return object;
     }
     function box(parent: T.Object3D, mat: T.Material, x: number, y: number, z: number, w: number, h: number, d: number) {
       return mesh(new T.BoxGeometry(w, h, d), mat, parent, x, y, z);
-    }
-    function sphere(parent: T.Object3D, mat: T.Material, x: number, y: number, z: number, radius: number, scale: [number, number, number] = [1, 1, 1]) {
-      const s = mesh(new T.SphereGeometry(radius, 18, 14), mat, parent, x, y, z); s.scale.set(...scale); return s;
     }
     function canvasTexture(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
       const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
@@ -175,7 +178,15 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     pavingReflection.rotation.x = -Math.PI / 2; pavingReflection.position.set(0, .043, -58);
     const mirrorMaterial = pavingReflection.material as T.ShaderMaterial;
     mirrorMaterial.transparent = true; mirrorMaterial.depthWrite = false;
-    mirrorMaterial.fragmentShader = mirrorMaterial.fragmentShader.replace('blendOverlay( base.rgb, color ), 1.0', 'blendOverlay( base.rgb, color ), 0.23');
+    mirrorMaterial.fragmentShader = mirrorMaterial.fragmentShader.replace('blendOverlay( base.rgb, color ), 1.0', 'blendOverlay( base.rgb, color ), 0.15');
+    // Reflect a directional sky, not the screen-fixed video painted onto the
+    // entire floor. Foreground portals and their changing light still reflect.
+    const reflectScene=pavingReflection.onBeforeRender;
+    pavingReflection.onBeforeRender=function(...args) {
+      const previous=args[1].background;
+      args[1].background=reflection;
+      try { reflectScene.apply(this,args); } finally { args[1].background=previous; }
+    };
     materials.push(mirrorMaterial); movingWorld.add(pavingReflection);
     const railSegments: T.Group[] = [];
     for (let i = 0; i < ROAD_MODULE_COUNT; i++) {
@@ -190,37 +201,14 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     }
     const activeDates = new Set(chats.map(chat => chat.date));
     const glowMat = material('#e1c78a', { emissive: '#ffd997', emissiveIntensity: 1.2, metalness: .5 });
-    const portalShader = new T.ShaderMaterial({ transparent: true, side: T.DoubleSide, depthWrite: false,
-      uniforms: { time: { value: 0 }, uActive: { value: 1 }, uSpring: { value: (portalProfile.springHeight - portalProfile.glassBottom) / (portalProfile.springHeight + portalProfile.glassRise - portalProfile.glassBottom) }, uView: { value: reflection } },
-      vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: `
-        varying vec2 vUv;
-        uniform float time,uActive,uSpring;
-        uniform sampler2D uView;
-        float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-        float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
-        float mist(vec2 p){return noise(p)*.57+noise(p*2.1)*.28+noise(p*4.3)*.15;}
-        void main(){
-          vec2 p=vUv-.5; float r=length(p*vec2(1.,.6));
-          float n=mist(vUv*vec2(4.,7.)+vec2(time*.07,-time*.10));
-          vec2 drift=vec2(sin(vUv.y*9.+time*.3),cos(vUv.x*6.-time*.2))*.012;
-          vec3 view=texture2D(uView,vec2(.60+vUv.x*.38,.1+vUv.y*.80)+drift).rgb;
-          float filament=pow(.5+.5*sin(n*19.+vUv.y*9.-time*.45),12.);
-          float archY=max(0.,(vUv.y-uSpring)/(1.-uSpring));
-          float outline=length(vec2(p.x*2.,archY));
-          float edge=pow(clamp(outline,0.,1.),20.)+pow(1.-vUv.y,30.);
-          vec3 col=mix(view*.72,vec3(.13,.54,.65),.24+n*.22);
-          col+=vec3(.23,.7,.85)*filament*.32;
-          col+=vec3(1.5,1.1,.55)*edge*.42;
-          vec2 grid=vUv*vec2(18.,34.)+vec2(time*.035,-time*.13);
-          vec2 cell=floor(grid);vec2 local=fract(grid)-.5;
-          float star=smoothstep(.105,0.,length(local))*step(.91,hash(cell));
-          col+=vec3(1.4,1.2,.75)*star*(.65+.35*sin(time+hash(cell)*6.));
-          col=mix(vec3(.25,.29,.30),col,uActive);
-          gl_FragColor=vec4(col,mix(.9,.93,uActive));
-        }
-      ` }); materials.push(portalShader);
-    type Portal = { root: T.Group; facing: T.Group; material: T.ShaderMaterial; label: T.Sprite; labelMaterial: T.SpriteMaterial; light: T.Mesh; gems: T.Mesh[]; index: number; aura: T.Points; glowLight: T.PointLight; architecture?: T.Object3D; active?: boolean };
+    const portalViews = ['portal-active.png', 'portal-inactive.png'].map(name => {
+      const texture = new T.TextureLoader().load(`/art/river-v8/${name}`);
+      texture.colorSpace = T.SRGBColorSpace; texture.flipY = false;
+      texture.anisotropy = 8; textures.push(texture); return texture;
+    });
+    const portalShader = portalSurface(portalViews[0], portalViews[1]); materials.push(portalShader);
+    type Flutter = { body: T.Group; wings: T.Group[]; phase: number; x: number; y: number };
+    type Portal = { root: T.Group; facing: T.Group; material: T.ShaderMaterial; label: T.Sprite; labelMaterial: T.SpriteMaterial; light: T.Mesh; gems: T.Mesh[]; index: number; aura: T.Points; glowLight: T.PointLight; effects: T.Group; crowns: T.Sprite[]; butterflies: Flutter[]; crownLight: T.PointLight; architecture?: T.Object3D; active?: boolean };
     const portals: Portal[] = [];
     const labelTexture = (date: string, active: boolean) => canvasTexture(768, 144, ctx => {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '48px Georgia, serif'; ctx.shadowColor = '#193d56'; ctx.shadowBlur = 5; ctx.strokeStyle = '#284b5d'; ctx.lineWidth = 3; ctx.strokeText(date.replaceAll('-', '.'), 384, 66); ctx.fillStyle = active ? '#ffedc7' : '#516774'; ctx.fillText(date.replaceAll('-', '.'), 384, 66);
@@ -229,16 +217,30 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     const sparkTexture = canvasTexture(32, 32, ctx => {
       const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, '#fff9dd'); g.addColorStop(.18, '#ffebbf'); g.addColorStop(.5, '#ffe8b955'); g.addColorStop(1, '#ffe8b900'); ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
     });
+    const crownTexture = canvasTexture(256,256,ctx => {
+      const halo=ctx.createRadialGradient(128,128,0,128,128,108);
+      halo.addColorStop(0,'#fffcebb0');halo.addColorStop(.12,'#ffe9bc50');halo.addColorStop(.38,'#ffcd6e1a');halo.addColorStop(1,'#ffcd6e00');
+      ctx.fillStyle=halo;ctx.fillRect(0,0,256,256);
+      const ray=ctx.createRadialGradient(128,128,0,128,128,118);
+      ray.addColorStop(0,'#ffffff');ray.addColorStop(.18,'#fff8da');ray.addColorStop(.55,'#ffe1a450');ray.addColorStop(1,'#ffe1a400');
+      ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(128,6);ctx.lineTo(134,117);ctx.lineTo(216,128);ctx.lineTo(134,139);ctx.lineTo(128,250);ctx.lineTo(122,139);ctx.lineTo(40,128);ctx.lineTo(122,117);ctx.closePath();ctx.fill();
+    });
+    const crownMaterial=new T.SpriteMaterial({map:crownTexture,color:new T.Color('#ffdfa0').multiplyScalar(1.5),transparent:true,opacity:.5,blending:T.AdditiveBlending,depthWrite:false});materials.push(crownMaterial);
+    const butterflyMaterial=new T.MeshBasicMaterial({color:new T.Color('#ffcd73').multiplyScalar(1.7),transparent:true,opacity:.78,side:T.DoubleSide,blending:T.AdditiveBlending,depthWrite:false});materials.push(butterflyMaterial);
+    const butterflyWing=new T.Shape();butterflyWing.moveTo(0,0);butterflyWing.bezierCurveTo(.05,.16,.22,.20,.19,.08);butterflyWing.bezierCurveTo(.19,.01,.12,-.01,.055,0);butterflyWing.bezierCurveTo(.19,-.01,.16,-.13,.08,-.10);butterflyWing.quadraticCurveTo(.02,-.07,0,0);
+    const wingGeometry=new T.ShapeGeometry(butterflyWing,14);geometries.push(wingGeometry);
+    const frameGlows=[softFrameGlow(portalClock),softFrameGlow(portalClock,true)];
+    frameGlows.forEach(glow=>{geometries.push(glow.geometry);materials.push(glow.material);});
     const auraGeometry = new T.BufferGeometry(); const sparkPositions = new Float32Array(240 * 3);
     for (let i = 0; i < 240; i++) {
       const t = i / 240;
       let x: number, y: number;
-      if (t < .72) { x = (i % 2 ? -1 : 1) * portalProfile.glassHalfWidth; y = portalProfile.glassBottom + t / .72 * (portalProfile.springHeight - portalProfile.glassBottom); }
-      else { const a = (t - .72) / .28 * Math.PI; x = Math.cos(a) * portalProfile.glassHalfWidth; y = portalProfile.springHeight + Math.sin(a) * portalProfile.glassRise; }
+      if (t < .72) { x = (i % 2 ? -1 : 1) * referenceProfile.glassHalfWidth; y = referenceProfile.glassBottom + t / .72 * (referenceProfile.springHeight - referenceProfile.glassBottom); }
+      else { const a = (t - .72) / .28 * Math.PI; x = Math.cos(a) * referenceProfile.glassHalfWidth; y = referenceProfile.springHeight + Math.sin(a) * referenceProfile.glassRise; }
       sparkPositions[i * 3] = x + (random() - .5) * .055; sparkPositions[i * 3 + 1] = y + (random() - .5) * .055; sparkPositions[i * 3 + 2] = (random() - .5) * .025;
     }
     auraGeometry.setAttribute('position', new T.BufferAttribute(sparkPositions, 3)); geometries.push(auraGeometry);
-    const auraMaterial = new T.PointsMaterial({ color: new T.Color('#ffe2a0').multiplyScalar(1.5), map: sparkTexture, size: .10, transparent: true, opacity: .82, blending: T.AdditiveBlending, depthWrite: false }); materials.push(auraMaterial);
+    const auraMaterial = new T.PointsMaterial({ color: new T.Color('#ffe2a0').multiplyScalar(2.2), map: sparkTexture, size: .085, transparent: true, opacity: .82, blending: T.AdditiveBlending, depthWrite: false }); materials.push(auraMaterial);
     for (let i = 0; i < 10; i++) {
       const group = new T.Group(); movingWorld.add(group);
       // Entire portal stands on an external bay, leaving the eight-unit road clear.
@@ -276,13 +278,35 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       const light = mesh(aperture, pm, group); light.position.z = -profile.depth;
       const gems = [mesh(new T.OctahedronGeometry(.24), glowMat, group, 0, 5.8, .3)]; gems[0].scale.y = 1.6;
       const lm = new T.SpriteMaterial({ transparent: true, depthTest: false }); materials.push(lm);
-      const label = new T.Sprite(lm); label.position.set(0, 7.3, 0); label.scale.set(5.6, 1.05, 1); group.add(label);
+      const label = new T.Sprite(lm); label.position.set(0, 7.3*PORTAL_SCALE, 0); label.scale.set(5.9, 1.1, 1); group.add(label);
       const aura = new T.Points(auraGeometry, auraMaterial); aura.position.z = -portalProfile.depth + .03; group.add(aura);
-      const glowLight = new T.PointLight('#91deed', 7, 11, 2); glowLight.position.set(0, 2, .5); group.add(glowLight);
+      const glowLight = new T.PointLight('#91deed', 15, 12, 2); glowLight.position.set(0, 2.6, .5); group.add(glowLight);
       const facing = new T.Group();
       for (const child of [...group.children]) if (child !== label && child !== glowLight) facing.add(child);
+      facing.scale.setScalar(PORTAL_SCALE);
+      facing.position.z=-DOOR_RECESS;
       group.add(facing);
-      portals.push({ root: group, facing, material: pm, label, labelMaterial: lm, light, gems, aura, glowLight, index: Number.NaN });
+      const effects=new T.Group();facing.add(effects);
+      for(const glow of frameGlows)for(const side of [-1,1]){
+        const ribbon=new T.Mesh(glow.geometry,glow.material);
+        ribbon.position.z=-referenceProfile.depth+side*.40;effects.add(ribbon);
+      }
+      const crowns:T.Sprite[]=[];
+      for (const side of [-1,1]) {
+        const crown=new T.Sprite(crownMaterial);crown.position.set(0,referenceProfile.crownHeight,-referenceProfile.depth+side*.36);crown.scale.set(1.65,2.25,1);effects.add(crown);crowns.push(crown);
+        const tip=new T.Sprite(crownMaterial);tip.position.set(0,6.35,-referenceProfile.depth+side*.30);tip.scale.set(.42,.72,1);effects.add(tip);crowns.push(tip);
+      }
+      const crownLight=new T.PointLight('#ffd697',4,5,2);crownLight.position.set(0,referenceProfile.crownHeight,-referenceProfile.depth+.65);effects.add(crownLight);
+      const butterflies:Flutter[]=[];
+      for (let j=0;j<5;j++) {
+        const body=new T.Group(),wings:T.Group[]=[];
+        const side=j%2?-1:1, x=side*(.60+(j%3)*.51), y=5.55+(j%3)*.43;
+        body.position.set(x,y,-referenceProfile.depth+.4);body.rotation.z=side*.35;body.scale.setScalar(.7);effects.add(body);
+        for (const direction of [-1,1]) { const hinge=new T.Group();const wing=new T.Mesh(wingGeometry,butterflyMaterial);wing.scale.x=direction;hinge.add(wing);body.add(hinge);wings.push(hinge); }
+        const mote=new T.Sprite(crownMaterial);mote.scale.set(.15,.15,1);body.add(mote);
+        butterflies.push({body,wings,phase:j*1.79+i*.7,x,y});
+      }
+      portals.push({ root: group, facing, material: pm, label, labelMaterial: lm, light, gems, aura, glowLight, effects, crowns, crownLight, butterflies, index: Number.NaN });
     }
     const bridgeInstances: { mesh: T.InstancedMesh; local: T.Matrix4; side: number }[] = [];
     const instanceTransform = new T.Object3D();
@@ -292,12 +316,20 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       let gray = inactiveMaterial.get(original);
       if (!gray) {
         gray = original.clone();
-        if (gray instanceof T.MeshStandardMaterial) { gray.color.set('#758083'); gray.metalness = .08; gray.roughness = .78; gray.emissive.set(0); }
+        if (gray instanceof T.MeshStandardMaterial) {
+          gray.color.set('#a4afb4'); gray.metalness = .10; gray.roughness = .72; gray.emissive.set(0); gray.emissiveIntensity = 0;
+          gray.onBeforeCompile = shader => {
+            shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+              float quietLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+              diffuseColor.rgb=mix(diffuseColor.rgb,vec3(quietLuma),.86);`);
+          };
+          gray.customProgramCacheKey = () => 'river-reference-dormant-v8';
+        }
         inactiveMaterial.set(original, gray); materials.push(gray);
       }
       return gray;
     }
-    new GLTFLoader().load('/models/river-architecture.glb', gltf => {
+    new GLTFLoader().load('/models/river-architecture-v9.glb', gltf => {
       if (disposed) return;
       gltf.scene.updateMatrixWorld(true);
       gltf.scene.traverse(object => {
@@ -305,7 +337,26 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
           object.castShadow = true; object.receiveShadow = true;
           geometries.push(object.geometry);
           const upgradeStone = (mat: T.Material) => {
-            if (!(mat instanceof T.MeshStandardMaterial) || !/ivory marble/i.test(mat.name)) return mat;
+            if (!(mat instanceof T.MeshStandardMaterial)) return mat;
+            if (/Reference portal (carved|sculpted)/i.test(mat.name)) {
+              animateFrameMaterial(mat, portalClock);
+              mat.bumpMap=mat.map;mat.bumpScale=.014;
+              if (mat.map) mat.map.anisotropy = 8;
+              return mat;
+            }
+            if (mat.name === 'Reference paving' || mat.name === 'Reference terrace') {
+              const paving = new T.MeshPhysicalMaterial({ name: mat.name, color: mat.name === 'Reference paving' ? '#dbcfb8' : '#e1d4bd', map: mat.map,
+                normalMap: mat.normalMap, normalScale: new T.Vector2(.45,.45),
+                roughnessMap: mat.roughnessMap, metalnessMap: mat.metalnessMap,
+                roughness: mat.roughnessMap ? 1 : mat.roughness, metalness: mat.metalnessMap ? 1 : mat.metalness,
+                bumpMap: mat.map,bumpScale:.009, clearcoat: .40, clearcoatRoughness: .20, envMapIntensity: .75 });
+              for (const texture of [paving.map,paving.normalMap,paving.roughnessMap,paving.metalnessMap]) {
+                if (texture) { texture.wrapS = texture.wrapT = T.RepeatWrapping; texture.anisotropy = 8; }
+              }
+              if (mat.name === 'Reference paving') continuousPavingMaterial(paving);
+              materials.push(mat); return paving;
+            }
+            if (!/ivory marble/i.test(mat.name)) return mat;
             const polished = new T.MeshPhysicalMaterial({
               name: mat.name, color: mat.color, map: polishedStone, normalMap: mat.normalMap,
               roughness: .29, metalness: .06, clearcoat: .48, clearcoatRoughness: .20,
@@ -324,6 +375,10 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
         template?.traverse(source => {
           if (!(source instanceof T.Mesh)) return;
           const instanced = new T.InstancedMesh(source.geometry, source.material, railSegments.length);
+          if (side === 0) {
+            source.geometry.setAttribute('riverTilePhase', new T.InstancedBufferAttribute(
+              Float32Array.from({length: railSegments.length}, (_, i) => -(i % 4) / 4), 1));
+          }
           instanced.castShadow = true; instanced.receiveShadow = true;
           instanced.instanceMatrix.setUsage(T.DynamicDrawUsage); instanced.frustumCulled = false;
           movingWorld.add(instanced); bridgeInstances.push({ mesh: instanced, local: source.matrixWorld.clone(), side });
@@ -341,62 +396,57 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       const terraceTemplate = gltf.scene.getObjectByName('PortalTerrace');
       const frameTemplate = gltf.scene.getObjectByName('Portal');
       if (frameTemplate) for (const portal of portals) {
-        portal.facing.children.forEach(child => { if (child !== portal.light && child !== portal.aura) child.visible = false; });
-        if (terraceTemplate) portal.root.add(terraceTemplate.clone(true));
+        portal.facing.children.forEach(child => { if (child !== portal.light && child !== portal.aura && child !== portal.effects) child.visible = false; });
+        if (terraceTemplate) { const terrace=terraceTemplate.clone(true);terrace.scale.setScalar(TERRACE_SCALE);portal.root.add(terrace); }
         const detailed = frameTemplate.clone(true); portal.facing.add(detailed); portal.architecture = detailed; portal.active = undefined;
         detailed.traverse(object => { if (object instanceof T.Mesh) object.userData.riverOriginalMaterial = object.material; });
       }
-      root!.dataset.architecture = bridgeInstances.length && frameTemplate ? 'blender-glb' : 'fallback';
+      root!.dataset.architecture = bridgeInstances.length && frameTemplate ? 'blender-reference-v9' : 'fallback';
+      root!.dataset.portalConstruction = referenceProfile.construction;
+      root!.dataset.portalEmission = 'animated-surface-crown-particles-soft-undulating-frame';
+      root!.dataset.portalScale = String(PORTAL_SCALE);
+      root!.dataset.terraceRadius = String(6.15*TERRACE_SCALE);
+      root!.dataset.portalOrnaments = 'five-fluttering-gold-butterflies-and-double-sided-starbursts';
       architectureReady = true; finishLoading();
     }, undefined, () => { if (!disposed) { setArchitectureFailed(true); architectureReady = true; finishLoading(); } });
-    // Original low-poly traveler. Root and camera remain fixed throughout movement.
+    // Identity selects a complete textured, skinned character. Root/camera stay fixed.
     const traveler = new T.Group(); traveler.position.set(-.9, 0, 4); scene.add(traveler);
-    const body = new T.Group(); traveler.add(body);
-    mesh(new T.CylinderGeometry(.27, .36, .7, 12), teal, body, 0, 1.35, 0);
-    mesh(new T.CylinderGeometry(.32, .48, .55, 12), white, body, 0, .95, 0);
-    sphere(body, skin, 0, 1.98, 0, .26, [.85, 1.13, .95]);
-    sphere(body, white, 0, 2.08, .07, .29, [1, 1.05, 1]);
-    for (const side of [-1, 1]) {
-      sphere(body, white, side * .22, 1.87, .12, .16, [.7, 1.9, .8]);
-      mesh(new T.ConeGeometry(.11, .42, 6), gold, body, side * .25, 1.87, .16).rotation.z = side * .4;
-    }
-    const cape = mesh(new T.ConeGeometry(.55, 1.16, 5, 1, true), teal, body, 0, 1.24, .21); cape.rotation.y = Math.PI / 5; cape.scale.z = .55;
-    const capeEdge = mesh(new T.ConeGeometry(.57, .1, 5, 1, true), gold, body, 0, .7, .21); capeEdge.scale.z = .55;
-    box(body, gold, 0, 1.63, .35, .34, .06, .08);
-    const legs: T.Group[] = [], arms: T.Group[] = [];
-    for (const side of [-1, 1]) {
-      const leg = new T.Group(); leg.position.set(side * .18, .9, 0); traveler.add(leg); legs.push(leg);
-      mesh(new T.CylinderGeometry(.09, .075, .55, 10), skin, leg, 0, -.25, 0);
-      mesh(new T.CylinderGeometry(.085, .11, .35, 10), dark, leg, 0, -.62, 0);
-      box(leg, dark, 0, -.82, -.055, .19, .13, .33);
-      const arm = new T.Group(); arm.position.set(side * .33, 1.58, 0); body.add(arm); arms.push(arm);
-      mesh(new T.CylinderGeometry(.1, .08, .47, 10), white, arm, side * .035, -.19, 0); sphere(arm, skin, side * .05, -.48, 0, .08);
-    }
-    const fallbackParts = [...traveler.children];
+    const characterAsset = riverCharacters[character];
     let mixer: T.AnimationMixer | undefined;
     let idleAction: T.AnimationAction | undefined, runAction: T.AnimationAction | undefined;
-    let wasMoving = false;
+    let forwardSpeed = 0, lateralSpeed = 0;
     const skeletons = new Set<T.Skeleton>();
-    new GLTFLoader().load('/models/river-traveler.glb', gltf => {
+    new GLTFLoader().load(characterAsset.model, gltf => {
       gltf.scene.traverse(object => {
         if (object instanceof T.Mesh) {
           object.castShadow = true; object.receiveShadow = true;
           geometries.push(object.geometry);
           const mats = Array.isArray(object.material) ? object.material : [object.material];
           materials.push(...mats);
-          for (const mat of mats) { for (const value of Object.values(mat)) if (value instanceof T.Texture) textures.push(value); }
+          for (const mat of mats) {
+            if (mat instanceof T.MeshStandardMaterial) {
+              // Keep the authored skin, cloth, leather and metal response.
+              // Native game meshes use solid silhouettes and authored normal/ORM maps.
+              mat.transparent = false; mat.alphaTest = 0; mat.depthWrite = true;
+              if (mat.map) mat.map.anisotropy = Math.min(8,renderer.capabilities.getMaxAnisotropy());
+            }
+            for (const value of Object.values(mat)) if (value instanceof T.Texture) textures.push(value);
+          }
           if (object instanceof T.SkinnedMesh) skeletons.add(object.skeleton);
         }
       });
       if (disposed) { gltf.scene.traverse(object => { if (object instanceof T.Mesh) { object.geometry.dispose(); (Array.isArray(object.material) ? object.material : [object.material]).forEach(mat => mat.dispose()); } }); return; }
-      gltf.scene.scale.setScalar(1.16); traveler.add(gltf.scene);
-      fallbackParts.forEach(part => { part.visible = false; });
+      gltf.scene.scale.setScalar(characterAsset.scale);
+      gltf.scene.rotation.y = Math.PI; // Source rig faces +Z; corridor forward is -Z.
+      traveler.add(gltf.scene);
       mixer = new T.AnimationMixer(gltf.scene);
       const idle = gltf.animations.find(clip => /idle/i.test(clip.name));
       const run = gltf.animations.find(clip => /run/i.test(clip.name));
       if (idle) { idleAction = mixer.clipAction(idle); idleAction.play(); }
-      if (run) runAction = mixer.clipAction(run);
-      root!.dataset.model = 'blender-glb'; root!.dataset.animations = gltf.animations.map(clip => clip.name).join(',');
+      if (run) { runAction = mixer.clipAction(run); runAction.setEffectiveWeight(0).play(); }
+      root!.dataset.model = 'quaternius-game-rig'; root!.dataset.character = character;
+      root!.dataset.characterName = characterAsset.name; root!.dataset.characterAsset = characterAsset.model;
+      root!.dataset.animations = gltf.animations.map(clip => clip.name).join(',');
       modelReady = true; finishLoading();
     }, undefined, () => { if (!disposed) { setModelFailed(true); modelReady = true; finishLoading(); } });
     const shadowTex = canvasTexture(64, 64, ctx => { const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(32,51,59,.35)'); g.addColorStop(1, 'rgba(32,51,59,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64); });
@@ -409,7 +459,7 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     const particles = new T.Points(particlesGeo, particleMat); scene.add(particles);
     const keys = new Set<string>();
     let lane = -.9;
-    let travel = 2.5, elapsed = 0, step = 0, last = 0, frame = 0, lastNear: string | null = null, appliedTeleport=0;
+    let travel = 2.5, elapsed = 0, last = 0, frame = 0, lastNear: string | null = null, appliedTeleport=0;
     const movementKeys = new Set(['KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight']);
     function keydown(e: KeyboardEvent) { if (!movementKeys.has(e.code) || (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return; e.preventDefault(); if (!live.current.paused) keys.add(e.code); }
     function keyup(e: KeyboardEvent) { keys.delete(e.code); }
@@ -424,14 +474,44 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
         texture.offset.set((1 - texture.repeat.x) * .62, (1 - texture.repeat.y) / 2);
       } }
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
+    const labelProjection = new T.Vector3();
+    let frameWindow = 0, frameCount = 0, maxFrameMs = 0;
     function animate(now: number) {
-      frame = requestAnimationFrame(animate); const dt = last ? Math.min((now - last) / 1000, .05) : 0; last = now; elapsed += dt;
+      frame = requestAnimationFrame(animate);
+      const rawDelta = last ? (now - last) / 1000 : 0;
+      const dt = Math.min(rawDelta, .05); last = now; elapsed += dt;
+      if (rawDelta > 0) { frameWindow += rawDelta; frameCount++; maxFrameMs = Math.max(maxFrameMs, rawDelta * 1000); }
+      if (frameWindow >= 1) {
+        root!.dataset.fps = (frameCount / frameWindow).toFixed(1);
+        root!.dataset.maxFrameMs = maxFrameMs.toFixed(1);
+        frameWindow = 0; frameCount = 0; maxFrameMs = 0;
+      }
+      portalClock.value = elapsed;
+      root!.dataset.portalPhase = elapsed.toFixed(3);
+      // Individual edge motes drift and shimmer; the gate geometry stays still.
+      const motes = auraGeometry.attributes.position as T.BufferAttribute;
+      for (let i = 0; i < 240; i++) {
+        const phase = (i / 240 + elapsed * .025) % 1;
+        const side = i % 2 ? -1 : 1;
+        let x: number, y: number;
+        if (phase < .72) {
+          x = side * referenceProfile.glassHalfWidth;
+          y = referenceProfile.glassBottom + phase/.72*(referenceProfile.springHeight-referenceProfile.glassBottom);
+        } else {
+          const a = (phase-.72)/.28*Math.PI;
+          x = Math.cos(a)*referenceProfile.glassHalfWidth;
+          y = referenceProfile.springHeight+Math.sin(a)*referenceProfile.glassRise;
+        }
+        motes.setXYZ(i,x+Math.sin(elapsed*.8+i)*.025,y,Math.sin(i*2.4+elapsed*.6)*.16);
+      }
+      motes.needsUpdate = true;
       const target=live.current.teleportTo;
       if(target && target.sequence!==appliedTeleport && activeDates.has(target.date)){
         const offset=Math.round((Date.parse(target.date+'T00:00:00Z')-Date.parse(anchor+'T00:00:00Z'))/86400000);
         if(Number.isFinite(offset)){
           travel=offset*SPACING+PORTAL_OFFSET;
-          lane=offset%2===0?2.65:-2.65;
+          lane=offset%2===0?RIVER_LANE_LIMIT:-RIVER_LANE_LIMIT;
+          forwardSpeed=0;lateralSpeed=0;
           keys.clear();lastNear=null;
         }
         appliedTeleport=target.sequence;
@@ -440,11 +520,18 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       const input = live.current.paused || document.hidden ? 0 : Math.max(-1, Math.min(1, live.current.direction + (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0)));
       const lateral = live.current.paused || document.hidden ? 0 : Math.max(-1, Math.min(1, live.current.strafe + (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0)));
       const normalize = input && lateral ? Math.SQRT1_2 : 1;
-      travel += input * 10 * normalize * dt;
-      lane = T.MathUtils.clamp(lane + lateral * 6 * normalize * dt, -2.65, 2.65);
+      const halted = live.current.paused || document.hidden;
+      forwardSpeed = halted ? 0 : riverVelocity(forwardSpeed, input * RIVER_RUN_SPEED * normalize, dt);
+      lateralSpeed = halted ? 0 : riverVelocity(lateralSpeed, lateral * RIVER_RUN_SPEED * normalize, dt);
+      travel += forwardSpeed * dt;
+      const previousLane = lane;
+      lane = T.MathUtils.clamp(lane + lateralSpeed * dt, -RIVER_LANE_LIMIT, RIVER_LANE_LIMIT);
+      const actualLateral = dt > 0 ? (lane - previousLane) / dt : 0;
+      const speed = Math.hypot(forwardSpeed, actualLateral);
       movingWorld.position.x = -.9 - lane;
-      const moving = input !== 0 || lateral !== 0;
-      traveler.rotation.y = T.MathUtils.lerp(traveler.rotation.y, -lateral * .45, .12);
+      const moving = speed > .05;
+      traveler.rotation.y = riverFacing(traveler.rotation.y, forwardSpeed, actualLateral, dt);
+      root!.dataset.facing = traveler.rotation.y.toFixed(3); root!.dataset.speed = speed.toFixed(2);
       root!.dataset.traveler = traveler.position.toArray().join(','); root!.dataset.camera = camera.position.toArray().join(','); root!.dataset.distance = travel.toFixed(2); root!.dataset.lane = lane.toFixed(2); root!.dataset.moving = String(moving);
       roadTexture.offset.y = travel / (160 / 18);
       for (let i = 0; i < railSegments.length; i++) {
@@ -455,12 +542,12 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
           const closestIndex = Math.round((travel + 4 - z - PORTAL_OFFSET) / SPACING);
           const portalZ = 4 - (closestIndex * SPACING - travel + PORTAL_OFFSET);
           const portalSide = closestIndex % 2 === 0 ? 1 : -1;
-          child.visible = !(side === portalSide && Math.abs(portalZ - z) < 4.25);
+          child.visible = !(side === portalSide && Math.abs(portalZ - z) < TERRACE_OPENING);
         }
       }
       root!.dataset.roadSampleZ = railSegments[10].position.z.toFixed(4);
       root!.dataset.medallionSampleZ = railSegments[13].position.z.toFixed(4);
-      let nearest: string | null = null, best = 7.3;
+      let nearest: string | null = null, best = 7.8;
       for (const part of bridgeInstances) {
         for (let i = 0; i < railSegments.length; i++) {
           const rail = railSegments[i];
@@ -469,7 +556,7 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
           const pz = 4 - (index * SPACING - travel + PORTAL_OFFSET);
           if (part.side === 3 && i % 6 !== 1) instanceTransform.scale.setScalar(0);
           if (Math.abs(part.side) === 4 && i % 3 !== 0) instanceTransform.scale.setScalar(0);
-          if ((Math.abs(part.side) === 1 || Math.abs(part.side) === 4) && Math.sign(part.side) === (index % 2 === 0 ? 1 : -1) && Math.abs(pz - rail.position.z) < 4.25) instanceTransform.scale.setScalar(0);
+          if ((Math.abs(part.side) === 1 || Math.abs(part.side) === 4) && Math.sign(part.side) === (index % 2 === 0 ? 1 : -1) && Math.abs(pz - rail.position.z) < TERRACE_OPENING) instanceTransform.scale.setScalar(0);
           instanceTransform.updateMatrix(); instanceMatrix.multiplyMatrices(instanceTransform.matrix, part.local); part.mesh.setMatrixAt(i, instanceMatrix);
         }
         part.mesh.instanceMatrix.needsUpdate = true;
@@ -478,10 +565,20 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       for (let i = 0; i < portals.length; i++) {
         const index = center + i - 2; const distance = index * SPACING - travel + PORTAL_OFFSET;
         const z = 4 - distance; const side = index % 2 === 0 ? 1 : -1; const portal = portals[i];
-        portal.root.position.set(curve(z) + side * 6.35, 0, z);
+        portal.root.position.set(curve(z) + side * PORTAL_LATERAL, 0, z);
         portal.root.rotation.y = -side * Math.PI / 2 + Math.atan(.0076 * (z - 4));
         portal.facing.rotation.y = side * Math.PI / 4;
         portal.root.visible = z < 16 && z > -135;
+        // A large nearby gate may extend above the camera; keep its date readable.
+        portal.label.position.set(0,7.3*PORTAL_SCALE,-DOOR_RECESS);
+        portal.root.updateMatrixWorld(true);
+        portal.label.getWorldPosition(labelProjection).project(camera);
+        portal.label.visible = labelProjection.z > -1 && labelProjection.z < 1;
+        if (portal.label.visible && labelProjection.y > .80) {
+          labelProjection.y=.80;
+          labelProjection.unproject(camera);
+          portal.label.position.copy(portal.root.worldToLocal(labelProjection));
+        }
         if (i === 2) { root!.dataset.portalAngle = (portal.root.rotation.y + portal.facing.rotation.y).toFixed(4); root!.dataset.portalFacingDegrees = String(-side * 45); root!.dataset.roadAngle = Math.atan(.0076 * (z - 4)).toFixed(4); }
         const date = offsetDate(anchor, index), active = activeDates.has(date);
         if (portal.index !== index) {
@@ -498,16 +595,25 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
           });
           portal.active = active;
         }
-        portal.aura.visible = active; portal.glowLight.visible = active;
+        portal.aura.visible = active; portal.glowLight.visible = active;portal.effects.visible=active;
+        const breath=1+Math.sin(elapsed*1.35)*.12;
+        portal.glowLight.intensity = 15*breath;
+        portal.crownLight.intensity = 4.5*breath;
+        portal.crowns.forEach((crown,j)=>{const tip=j%2===1;crown.scale.set((tip ? .42 : 1.4)*breath,(tip ? .72 : 1.85)*breath,1);});
+        for (const butterfly of portal.butterflies) {
+          const phase=elapsed+butterfly.phase;
+          butterfly.body.position.x=butterfly.x+Math.sin(phase*.53)*.16;
+          butterfly.body.position.y=butterfly.y+Math.sin(phase*.78)*.11;
+          butterfly.body.position.z=-referenceProfile.depth+Math.cos(phase*.47)*.45;
+          butterfly.body.rotation.z=Math.sin(phase*.63)*.35;
+          butterfly.wings[0].rotation.y=.65+Math.sin(phase*8.5)*.55;
+          butterfly.wings[1].rotation.y=-.65-Math.sin(phase*8.5)*.55;
+        }
         portal.material.uniforms.time.value = elapsed;
-        const proximity = Math.hypot(distance, side * 6.35 - lane);
+        const proximity = Math.hypot(distance, side * PORTAL_LATERAL - lane);
         if (proximity < best) { best = proximity; nearest = date; }
       }
       if (nearest !== lastNear) { lastNear = nearest; root!.dataset.near = nearest || ''; live.current.onNear(nearest); }
-      step += (input || lateral) * dt * 13;
-      for (let i = 0; i < 2; i++) { legs[i].rotation.x = moving ? Math.sin(step + i * Math.PI) * .5 : T.MathUtils.lerp(legs[i].rotation.x, 0, .15); arms[i].rotation.x = moving ? -Math.sin(step + i * Math.PI) * .3 : T.MathUtils.lerp(arms[i].rotation.x, 0, .15); }
-      body.position.y = moving ? Math.abs(Math.sin(step)) * .045 : Math.sin(elapsed * 1.5) * .009;
-      cape.rotation.x = .08 + Math.sin(elapsed * 2) * .035 + (moving ? .12 : 0);
 
       for (const island of floatingIslands) {
         island.sprite.position.x = island.x + Math.sin(elapsed * .22 + island.phase) * island.horizontal;
@@ -516,11 +622,15 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
       root!.dataset.cloudOffset = background.offset.x.toFixed(5);
       root!.dataset.mainCity = mainCity.position.toArray().join(',');
       root!.dataset.floatingIsland = 'panorama';
-      if (mixer && moving !== wasMoving) {
-        const next = moving ? runAction : idleAction, prev = moving ? idleAction : runAction;
-        prev?.fadeOut(.18); next?.reset().fadeIn(.18).play(); wasMoving = moving;
-      }
+      // Blend the actual artist-authored clips by velocity. Keeping both clocks
+      // alive avoids restarting a stride on every key tap or direction change.
+      const runWeight = T.MathUtils.clamp(speed / RIVER_RUN_SPEED, 0, 1);
+      idleAction?.setEffectiveWeight(1 - runWeight);
+      runAction?.setEffectiveWeight(runWeight);
+      runAction?.setEffectiveTimeScale(RIVER_GAIT_RATE * Math.max(.4, runWeight));
       mixer?.update(dt);
+      root!.dataset.animationTime = (runAction?.time ?? 0).toFixed(3);
+      root!.dataset.runWeight = runWeight.toFixed(3);
       root!.dataset.animation = runAction?.isRunning() && runAction.getEffectiveWeight() > .5 ? 'Run' : 'Idle';
       particles.position.y = Math.sin(elapsed * .25) * .3;
       composer.render();
@@ -540,6 +650,6 @@ export default function RiverScene({ language, anchor, chats, teleportTo, paused
     };
   // Scene content is stable; input and modal state are read through live refs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor, signature, language]);
-  return <><div ref={host} className="river-canvas"/>{!ready && !failed && <div className="river-loading" role="status"><span>✧</span>{t('正在进入走廊','Entering the Corridor of Time')}</div>}{architectureFailed && <div className="river-model-note" role="alert">{t('场景模型载入失败，请刷新重试。','Scene model failed to load. Please refresh.')}</div>}{modelFailed && <div className="river-model-note" role="status">{t('角色模型载入失败，暂用简化模型。','Character model failed to load. A simple model is shown.')}</div>}{failed && <div className="river-unavailable" role="alert">{t('三维场景暂时无法显示。请启用浏览器硬件加速并刷新页面。','The 3D scene is unavailable. Enable hardware acceleration and refresh.')}<button onClick={() => window.location.reload()}>{t('重新打开','Reload')}</button></div>}</>;
+  }, [anchor, signature, language, character]);
+  return <><div ref={host} className="river-canvas"/>{!ready && !failed && <div className="river-loading" role="status"><span>✧</span>{t('正在进入走廊','Entering the Corridor of Time')}</div>}{architectureFailed && <div className="river-model-note" role="alert">{t('场景模型载入失败，请刷新重试。','Scene model failed to load. Please refresh.')}</div>}{modelFailed && <div className="river-model-note" role="alert">{t('角色模型载入失败，请刷新重试。','Character model failed to load. Please refresh.')}</div>}{failed && <div className="river-unavailable" role="alert">{t('三维场景暂时无法显示。请启用浏览器硬件加速并刷新页面。','The 3D scene is unavailable. Enable hardware acceleration and refresh.')}<button onClick={() => window.location.reload()}>{t('重新打开','Reload')}</button></div>}</>;
 }

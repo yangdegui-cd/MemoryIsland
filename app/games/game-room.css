@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Game House Script';
-  src: url('/fonts/game-house-script.ttf') format('truetype');
+  src: url('/fonts/game-house-script.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
   font-display: swap;

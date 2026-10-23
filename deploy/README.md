@@ -15,12 +15,12 @@ SSH：`ssh -i ~/.ssh/id_rsa ubuntu@43.135.170.243`。root 不接受此密钥。
 本地使用 Node >=22.13 构建：`node node_modules/vinext/dist/cli.js build`。上传 dist、drizzle、deploy 和 package.json/package-lock.json 后，在发布目录运行：
 
 ```sh
-sudo docker build -f deploy/Dockerfile -t daily-island:20261022 .
+sudo docker build -f deploy/Dockerfile -t daily-island:performance .
 sudo docker stop daily-island
 sudo docker rm daily-island
 sudo docker run -d --name daily-island --restart unless-stopped --init \
   -p 127.0.0.1:8787:8787 -v /opt/daily-island/data:/data \
-  --memory=1g --cpus=1.5 daily-island:20261022
+  --memory=1g --cpus=1.5 daily-island:performance
 ```
 
 启动时按文件名执行 drizzle SQL，迁移名写入 deployment_migrations，已执行的迁移不会重复执行。新增迁移必须使用新文件名。备份数据前先停止容器，完整归档 /opt/daily-island/data 后启动容器；恢复时同样需要停止容器。
@@ -44,3 +44,23 @@ sudo docker run -d --name daily-island --restart unless-stopped --init \
 当前镜像 `daily-island:mood-privacy-20261022`，发布目录 `/home/ubuntu/daily-island-mood-privacy-20261022`。已同步 Nginx 独立静态目录，43 个 JS/CSS 全部正常，`/mood` 返回 200。
 
 切换前备份 `/opt/daily-island/backups/data-20261022T141621Z.tar.gz`，旧容器 `daily-island-before-mood-privacy-20261022T141621Z` 保留。3 篇心情、2537 条聊天记录保留。本次无需数据库迁移。
+
+## 静态资源加速
+
+构建后运行 `node scripts/optimize-server-assets.mjs`，生成 AVIF/WebP 图片及 gzip JS/CSS/字体/模型。上传 dist 后，在服务器执行：
+
+```sh
+sudo mkdir -p /var/www/daily-island/static
+sudo cp -a ~/daily-island-release/dist/client/. /var/www/daily-island/static/
+sudo chmod -R a+rX /var/www/daily-island/static
+sudo cp ~/daily-island-release/deploy/nginx.conf /etc/nginx/sites-available/daily-island
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Nginx 根据 Accept 请求头优先提供 AVIF，其次提供 `.png.webp` / `.jpg.webp`，不支持时回退原图；透明图片保留 WebP 的无损 alpha；两种响应均带 `Vary: Accept`。图片尺寸和透明通道保留。公开 art/fonts/models 缓存 7 天，带构建哈希的 JS/CSS 缓存一年。私人照片仍通过 API 登录校验，不进入公共静态目录。HTML 和身份接口不设公共缓存。
+
+手写字体使用 WOFF2 Unicode 子集，保留原字体的全部 7015 个 Unicode 映射；常用界面字符优先放入一个约 122 KB 的子集，其余字符按需加载。重新生成：在独立 Python 环境安装 `fonttools[woff]`，运行 `python scripts/optimize-fonts.py`，然后重新构建。游戏屋字体保留全部字符，转换为 WOFF2。
+
+静态目录保留旧构建的哈希文件，以便已经打开的页面继续工作。每次发布应用时都要同步静态目录，避免新 HTML 引用不存在的 JS/CSS。应用容器与数据挂载方式保持不变。
+
+本次优化前镜像保留为 `daily-island:before-performance`，旧容器 `daily-island-before-performance` 已停止，必要时可停止当前容器后用旧镜像挂载同一数据目录恢复。
