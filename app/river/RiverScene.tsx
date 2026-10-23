@@ -13,17 +13,17 @@ import { ROAD_MODULE_COUNT, roadModuleZ } from './roadMotion';
 import portalProfile from '../../tools/blender/river-portal-profile.json';
 import { offsetDate, type RiverChat } from './timeline';
 
-type Props = { language: 'zh' | 'en'; anchor: string; chats: RiverChat[]; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
+type Props = { language: 'zh' | 'en'; anchor: string; chats: RiverChat[]; teleportTo: {date:string;sequence:number}|null; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
 const SPACING = 18;
 const PORTAL_OFFSET = 11;
 const curve = (z: number) => .0038 * (z - 4) ** 2;
 const stone = '#e5dec9';
 
-export default function RiverScene({ language, anchor, chats, paused, direction, strafe, onNear }: Props) {
+export default function RiverScene({ language, anchor, chats, teleportTo, paused, direction, strafe, onNear }: Props) {
   const t = (zh: string, en: string) => language === 'en' ? en : zh;
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef({ paused, direction, strafe, onNear });
-  live.current = { paused, direction, strafe, onNear };
+  const live = useRef({ paused, direction, strafe, onNear, teleportTo });
+  live.current = { paused, direction, strafe, onNear, teleportTo };
   const [failed, setFailed] = useState(false);
   const [modelFailed, setModelFailed] = useState(false);
   const [architectureFailed, setArchitectureFailed] = useState(false);
@@ -49,7 +49,9 @@ export default function RiverScene({ language, anchor, chats, paused, direction,
     const camera = new T.PerspectiveCamera(58, 1, .1, 600);
     camera.position.set(.4, 3.0, 9.8);
     camera.lookAt(2, 2, -27);
-    const renderTarget = new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: Math.min(4, renderer.capabilities.maxSamples) });
+    // Multisampled half-float composer targets produce partial blue frames on
+    // 2K Chromium viewports. Keep postprocessing targets single-sampled.
+    const renderTarget = new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: 0 });
     const composer = new EffectComposer(renderer, renderTarget);
     composer.addPass(new RenderPass(scene, camera));
     const ambientOcclusion = new SSAOPass(scene, camera, 640, 360);
@@ -163,6 +165,13 @@ export default function RiverScene({ language, anchor, chats, paused, direction,
     for (let i = 0; i < mirrorPositions.count; i++) mirrorPositions.setX(i, mirrorPositions.getX(i) + curve(-mirrorPositions.getY(i) - 58));
     mirrorGeometry.computeVertexNormals(); geometries.push(mirrorGeometry);
     const pavingReflection = new Reflector(mirrorGeometry, { color: '#e5d4ad', textureWidth: 768, textureHeight: 768, clipBias: .003 });
+    // SSAO renders the scene with a normal override material. A nested reflection
+    // during that pass corrupts the auxiliary buffers and can cover the scene.
+    const renderReflection = pavingReflection.onBeforeRender;
+    pavingReflection.onBeforeRender = function (...args) {
+      if (args[1].overrideMaterial) return;
+      renderReflection.apply(this, args);
+    };
     pavingReflection.rotation.x = -Math.PI / 2; pavingReflection.position.set(0, .043, -58);
     const mirrorMaterial = pavingReflection.material as T.ShaderMaterial;
     mirrorMaterial.transparent = true; mirrorMaterial.depthWrite = false;
@@ -400,7 +409,7 @@ export default function RiverScene({ language, anchor, chats, paused, direction,
     const particles = new T.Points(particlesGeo, particleMat); scene.add(particles);
     const keys = new Set<string>();
     let lane = -.9;
-    let travel = 2.5, elapsed = 0, step = 0, last = 0, frame = 0, lastNear: string | null = null;
+    let travel = 2.5, elapsed = 0, step = 0, last = 0, frame = 0, lastNear: string | null = null, appliedTeleport=0;
     const movementKeys = new Set(['KeyW', 'KeyS', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight']);
     function keydown(e: KeyboardEvent) { if (!movementKeys.has(e.code) || (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return; e.preventDefault(); if (!live.current.paused) keys.add(e.code); }
     function keyup(e: KeyboardEvent) { keys.delete(e.code); }
@@ -417,6 +426,16 @@ export default function RiverScene({ language, anchor, chats, paused, direction,
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
     function animate(now: number) {
       frame = requestAnimationFrame(animate); const dt = last ? Math.min((now - last) / 1000, .05) : 0; last = now; elapsed += dt;
+      const target=live.current.teleportTo;
+      if(target && target.sequence!==appliedTeleport && activeDates.has(target.date)){
+        const offset=Math.round((Date.parse(target.date+'T00:00:00Z')-Date.parse(anchor+'T00:00:00Z'))/86400000);
+        if(Number.isFinite(offset)){
+          travel=offset*SPACING+PORTAL_OFFSET;
+          lane=offset%2===0?2.65:-2.65;
+          keys.clear();lastNear=null;
+        }
+        appliedTeleport=target.sequence;
+      }
       if (live.current.paused) keys.clear();
       const input = live.current.paused || document.hidden ? 0 : Math.max(-1, Math.min(1, live.current.direction + (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0)));
       const lateral = live.current.paused || document.hidden ? 0 : Math.max(-1, Math.min(1, live.current.strafe + (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0)));
@@ -522,5 +541,5 @@ export default function RiverScene({ language, anchor, chats, paused, direction,
   // Scene content is stable; input and modal state are read through live refs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor, signature, language]);
-  return <><div ref={host} className="river-canvas"/>{!ready && !failed && <div className="river-loading" role="status"><span>✧</span>{t('正在进入长河','Entering the River of Time')}</div>}{architectureFailed && <div className="river-model-note" role="alert">{t('场景模型载入失败，请刷新重试。','Scene model failed to load. Please refresh.')}</div>}{modelFailed && <div className="river-model-note" role="status">{t('角色模型载入失败，暂用简化模型。','Character model failed to load. A simple model is shown.')}</div>}{failed && <div className="river-unavailable" role="alert">{t('三维场景暂时无法显示。请启用浏览器硬件加速并刷新页面。','The 3D scene is unavailable. Enable hardware acceleration and refresh.')}<button onClick={() => window.location.reload()}>{t('重新打开','Reload')}</button></div>}</>;
+  return <><div ref={host} className="river-canvas"/>{!ready && !failed && <div className="river-loading" role="status"><span>✧</span>{t('正在进入走廊','Entering the Corridor of Time')}</div>}{architectureFailed && <div className="river-model-note" role="alert">{t('场景模型载入失败，请刷新重试。','Scene model failed to load. Please refresh.')}</div>}{modelFailed && <div className="river-model-note" role="status">{t('角色模型载入失败，暂用简化模型。','Character model failed to load. A simple model is shown.')}</div>}{failed && <div className="river-unavailable" role="alert">{t('三维场景暂时无法显示。请启用浏览器硬件加速并刷新页面。','The 3D scene is unavailable. Enable hardware acceleration and refresh.')}<button onClick={() => window.location.reload()}>{t('重新打开','Reload')}</button></div>}</>;
 }

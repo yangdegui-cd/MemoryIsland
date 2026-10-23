@@ -1,4 +1,4 @@
-export type Note = {date:string;mood:string;note:string;image?:string;authorId?:string;timeZone?:string};
+export type Note = {date:string;mood:string;note:string;image?:string;authorId?:string;timeZone?:string;locked?:boolean};
 export type Sealed = {version:1;salt:string;iv:string;ciphertext:string};
 const encode=(value:Uint8Array)=>btoa(Array.from(value,b=>String.fromCharCode(b)).join(''));
 const decode=(value:string)=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));

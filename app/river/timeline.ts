@@ -1,5 +1,5 @@
-export type ChatMessage = { role: string; content: string };
-export type RiverChat = { id: string; date: string; title: string; messages: ChatMessage[] };
+export type ChatMessage = { role: string; content: string; speaker?: string; time?: string | null; original?: string; translation?: string; note?: string };
+export type RiverChat = { id: string; date: string; title: string; sourceNote?: string; part?: number; messages: ChatMessage[] };
 export function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }

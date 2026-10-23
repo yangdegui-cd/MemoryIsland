@@ -99,7 +99,7 @@ export function captureNotebook(book:HTMLElement) {
     const ratio=Math.max(rect.width/image.naturalWidth,rect.height/image.naturalHeight),w=image.naturalWidth*ratio,h=image.naturalHeight*ratio;
     ctx.drawImage(image,rect.x+(rect.width-w)/2,rect.y+(rect.height-h)/2,w,h);ctx.restore();
    }
-   const veil=ctx.createLinearGradient(0,rect.y,0,rect.bottom);veil.addColorStop(0,'#fffdf5bb');veil.addColorStop(1,'#fffdf5c9');ctx.fillStyle=veil;ctx.fillRect(rect.x,rect.y,rect.width,rect.height);
+   const veil=ctx.createLinearGradient(0,rect.y,0,rect.bottom);veil.addColorStop(0,'#fffdf540');veil.addColorStop(1,'#fffdf559');ctx.fillStyle=veil;ctx.fillRect(rect.x,rect.y,rect.width,rect.height);
   }
   if(element.classList.contains('note-text')){
    ctx.strokeStyle='#e8e6d7';ctx.lineWidth=1;

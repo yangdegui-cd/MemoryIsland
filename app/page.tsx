@@ -6,8 +6,8 @@ import './island-home.css';
 import IslandIntro from './components/IslandIntro';
 
 const copy = {
-  zh: {brand:'日常小岛', title:'欢迎回到你的小岛', hint:'点击一处，开始探索', palace:'记忆宫殿', river:'时光长河', game:'游戏屋', sky:'心情天空'},
-  en: {brand:'Daily Island', title:'Welcome to your little island', hint:'Pick a place. Begin exploring.', palace:'Memory Palace', river:'River of Time', game:'Game House', sky:'Mood Sky'},
+  zh: {brand:'日常小岛', title:'欢迎回到你的小岛', hint:'点击一处，开始探索', palace:'记忆宫殿', river:'时光走廊', game:'游戏屋', sky:'心情天空'},
+  en: {brand:'Daily Island', title:'Welcome to your little island', hint:'Pick a place. Begin exploring.', palace:'Memory Palace', river:'Corridor of Time', game:'Game House', sky:'Mood Sky'},
 };
 
 export default function Home(){
