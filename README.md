@@ -7,6 +7,7 @@
 | 我的小岛 | / | docs/home.md |
 | 回忆相册 | /album | docs/album.md |
 | 时光走廊 | /river | docs/river.md |
+| 图片与聊天存储 API | /settings/api | [docs/storage-api.md](docs/storage-api.md) |
 | 生活手记 | /diary | docs/diary.md |
 | 心情日历 | /mood | docs/mood.md |
 | 习惯花园 | /habits | docs/habits.md |

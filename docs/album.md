@@ -28,6 +28,8 @@
 
 `POST /api/photos` 上传；`GET /api/photos/[id]` 读取；`DELETE /api/photos/[id]` 删除。文件存 R2，元数据存 D1，按当前身份进行访问控制。
 
+外部脚本可使用 `POST /api/v1/photos`，通过独立 API 密钥上传到同一个相册。密钥管理在 `/settings/api`，完整字段、去重规则及调用示例见 [存储 API 文档](storage-api.md)。
+
 像素比上限 1.5；最多渲染 60 张照片；卸载时释放纹理、几何体、材质、控制器及后处理资源。
 
 ## 验证
