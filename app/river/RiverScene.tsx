@@ -53,6 +53,8 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
     root.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-label', t('云海弧形长路：W/S 前后，A/D 左右，方向键移动，靠近传送门按 F 查看聊天', 'Cloud road: W/S to move forward/back, A/D or arrow keys to move sideways. Press F near a portal to view chats.'));
+    const profileSkip = new Set(process.env.NODE_ENV !== 'production' ? new URLSearchParams(window.location.search).get('skip')?.split(',') : []);
+    renderer.info.autoReset = false;
     const scene = new T.Scene();
     scene.background = new T.Color('#92bfce');
     scene.fog = new T.FogExp2('#bdced3', .0035);
@@ -66,7 +68,7 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     composer.addPass(new RenderPass(scene, camera));
     const ambientOcclusion = new SSAOPass(scene, camera, 640, 360);
     ambientOcclusion.kernelRadius = 7; ambientOcclusion.minDistance = .003; ambientOcclusion.maxDistance = .065;
-    composer.addPass(ambientOcclusion);
+    composer.addPass(ambientOcclusion); ambientOcclusion.enabled = !profileSkip.has('ao');
     const bloom = new UnrealBloomPass(new T.Vector2(1, 1), .30, .42, 1.2);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
@@ -75,7 +77,7 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -25; sun.shadow.camera.right = 25; sun.shadow.camera.top = 25; sun.shadow.camera.bottom = -25; sun.shadow.camera.near = 1; sun.shadow.camera.far = 135;
     sun.shadow.bias = -.00015; sun.shadow.normalBias = .025; sun.shadow.radius = 3;
-    scene.add(sun);
+    scene.add(sun); if (profileSkip.has('shadows')) renderer.shadowMap.enabled = false;
     const fill = new T.DirectionalLight('#fff3dc', .38); fill.position.set(-8, 12, 18); scene.add(fill);
     let disposed = false, modelReady = false, architectureReady = false;
     const finishLoading = () => { if (!disposed && modelReady && architectureReady) setReady(true); };
@@ -173,7 +175,7 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     // during that pass corrupts the auxiliary buffers and can cover the scene.
     const renderReflection = pavingReflection.onBeforeRender;
     pavingReflection.onBeforeRender = function (...args) {
-      if (args[1].overrideMaterial) return;
+      if (args[1].overrideMaterial || profileSkip.has('reflection')) return;
       renderReflection.apply(this, args);
     };
     pavingReflection.rotation.x = -Math.PI / 2; pavingReflection.position.set(0, .043, -58);
@@ -460,7 +462,9 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     const observer = new ResizeObserver(resize); observer.observe(root); resize();
     const labelProjection = new T.Vector3();
     let frameWindow = 0, frameCount = 0, maxFrameMs = 0;
+    let cpuPeak = 0, renderPeak = 0;
     function animate(now: number) {
+      const updateStart = performance.now();
       frame = requestAnimationFrame(animate);
       const rawDelta = last ? (now - last) / 1000 : 0;
       const dt = Math.min(rawDelta, .05); last = now; elapsed += dt;
@@ -468,7 +472,9 @@ export default function RiverScene({ character, language, anchor, chats, telepor
       if (frameWindow >= 1) {
         root!.dataset.fps = (frameCount / frameWindow).toFixed(1);
         root!.dataset.maxFrameMs = maxFrameMs.toFixed(1);
-        frameWindow = 0; frameCount = 0; maxFrameMs = 0;
+        root!.dataset.cpuPeak = cpuPeak.toFixed(1); root!.dataset.renderPeak = renderPeak.toFixed(1);
+        root!.dataset.drawCalls = String(renderer.info.render.calls); root!.dataset.triangles = String(renderer.info.render.triangles); root!.dataset.programs = String(renderer.info.programs?.length);
+        cpuPeak = 0; renderPeak = 0; frameWindow = 0; frameCount = 0; maxFrameMs = 0;
       }
       portalClock.value = elapsed;
       root!.dataset.portalPhase = elapsed.toFixed(3);
@@ -618,7 +624,11 @@ export default function RiverScene({ character, language, anchor, chats, telepor
       root!.dataset.runWeight = runWeight.toFixed(3);
       root!.dataset.animation = runAction?.isRunning() && runAction.getEffectiveWeight() > .5 ? 'Run' : 'Idle';
       particles.position.y = Math.sin(elapsed * .25) * .3;
-      composer.render();
+      if (profileSkip.has('lights')) for (const p of portals) { p.glowLight.visible = false; p.crownLight.visible = false; }
+      root!.dataset.lightCount = String(portals.filter(p=>p.root.visible && p.glowLight.visible).length * 2);
+      cpuPeak = Math.max(cpuPeak, performance.now() - updateStart);
+      renderer.info.reset(); const renderStart = performance.now();
+      composer.render(); renderPeak = Math.max(renderPeak, performance.now() - renderStart);
     }
     frame = requestAnimationFrame(animate);
     function contextLost(e: Event) { e.preventDefault(); cancelAnimationFrame(frame); keys.clear(); setFailed(true); }
