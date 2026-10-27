@@ -1,6 +1,6 @@
-// Shorter steps at a quicker cadence; match planted-foot speed at scale 1.25.
+// Sprint_Loop_Rig supplies the complete authored two-step running cycle.
 export const RIVER_RUN_SPEED = 4.6;
-export const RIVER_GAIT_RATE = 1.45;
+export const RIVER_GAIT_RATE = 1;
 export const RIVER_LANE_LIMIT = 2.65;
 
 export function riverVelocity(current: number, requested: number, dt: number) {

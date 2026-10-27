@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>时光长河 · 二次元角色试跑</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overscroll-behavior:none}body{background:#f3f1eb;color:#303e39;font:15px/1.55 system-ui,-apple-system,sans-serif;overflow:hidden}main{height:100%;overflow:auto;padding:28px 32px;overscroll-behavior:contain}header{display:flex;justify-content:space-between;align-items:center;gap:24px;max-width:1600px;margin:0 auto 22px}h1{font-size:25px;font-weight:600;letter-spacing:1px;margin:0 0 5px}p{margin:0;color:#728079;font-size:13px}.actions{display:flex;gap:8px;flex-wrap:wrap}button{font:inherit;font-size:13px;cursor:pointer;border:1px solid #d4dbd3;background:#fffaf1;color:#43554b;padding:9px 15px;border-radius:100px}button[aria-pressed=true]{background:#425b4f;color:white;border-color:#425b4f}section{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;max-width:1600px;margin:auto}.card{border:1px solid #dedfd5;border-radius:20px;background:#fffefa;overflow:hidden;min-width:0;position:relative}.viewer{height:clamp(350px,64vh,740px);position:relative;background:radial-gradient(ellipse at 50% 40%,#fffdf6,#e6e9df)}canvas{width:100%;height:100%;display:block;touch-action:none}.meta{padding:16px 20px 18px;border-top:1px solid #e9e9df}h2{font-size:17px;font-weight:600;margin:0 0 5px}.num{font-size:12px;color:#829183;margin-right:10px}.status{position:absolute;top:16px;left:16px;font-size:11px;padding:5px 10px;background:#fffaf0cc;border-radius:100px;color:#526951;pointer-events:none}.error{color:#923b35}.source{font-size:12px;color:#748b7e;text-decoration:none}footer{max-width:1600px;margin:18px auto 0;display:flex;justify-content:space-between;gap:20px;color:#7b857d;font-size:12px}a{color:#587864}input{accent-color:#587864}label{display:flex;align-items:center;gap:8px;font-size:12px;color:#64776b}@media(max-width:800px){main{padding:20px 14px}header{display:block}.actions{margin-top:14px}section{grid-template-columns:1fr}.viewer{height:550px}footer{display:block}}
+</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/","@pixiv/three-vrm":"./three-vrm.module.js"}}</script>
+<main>
+  <header><div><h1>时光长河 · 角色试跑</h1><p>拖动旋转 · 滚轮查看细节 · 两个角色使用同一段跑步动作</p></div>
+    <div class="actions"><button id="run" aria-pressed="true">跑步</button><button id="idle" aria-pressed="false">站立</button><button id="front">正面</button><button id="side">侧面</button><button id="back">背面</button><label>速度 <input id="rate" aria-label="播放速度" type="range" min="0.65" max="1.3" step="0.05" value="1"><span id="rateValue">1.00×</span></label></div>
+  </header>
+  <section id="cards"></section>
+  <footer><span>模型：VRoid Studio 官方样本 · 动作：Sprint_Loop_Rig · 已选定角色配色预览</span><span><a href="https://github.com/madjin/vrm-samples" target="_blank" rel="noopener">模型来源</a> · <a href="https://github.com/pmndrs/viverse/tree/main/packages/viverse/assets" target="_blank" rel="noopener">动作来源</a></span></footer>
+</main>
+<script type="module" src="./preview.js"></script>
+</html>

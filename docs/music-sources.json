@@ -1,0 +1,87 @@
+{
+  "downloadedAt": "2026-10-27",
+  "tracks": [
+    {
+      "id": "autumn",
+      "file": "public/music/autumn.m4a",
+      "source": "https://www.youtube.com/watch?v=xIMrnLIanO0",
+      "sourceTitle": "LJY - Autumn （秋）( Ma Đồng Giáng Thế)",
+      "duration": 199.692,
+      "bytes": 3170113,
+      "sha256": "63c0e951ddabd052de32d02c027a98e3d8cb96dbd9eb547a484df495dd2b20ce"
+    },
+    {
+      "id": "before-spring",
+      "file": "public/music/before-spring.m4a",
+      "source": "https://www.youtube.com/watch?v=y0rANZHhrRY",
+      "sourceTitle": "Before spring ends",
+      "duration": 178.143,
+      "bytes": 2882886,
+      "sha256": "45ee30380662005ecf157f05eacb1cf3a28cf7c6fb3657e322ea3740f191f7de"
+    },
+    {
+      "id": "boku-ga",
+      "file": "public/music/boku-ga.m4a",
+      "source": "https://www.bilibili.com/video/BV1Eb411W7ky?p=2",
+      "sourceTitle": "【1080P/中文字幕】中岛美嘉 - 曾经我也想过一了百了[僕が死のうと思ったのは] p02 PV",
+      "duration": 380.267,
+      "bytes": 15656959,
+      "sha256": "3038834f83caebfd872829bd5a6d10ced1115fd97c70ef2e0f38fb3132b46d02"
+    },
+    {
+      "id": "colors",
+      "file": "public/music/colors.m4a",
+      "source": "https://www.youtube.com/watch?v=g7dGOqDWQS4",
+      "sourceTitle": "Colors",
+      "duration": 165.334,
+      "bytes": 2675344,
+      "sha256": "382e432c5a4875f56912bbe0aec4ac256a4eb9a9a8fe74a81d816b9e2a5362a5"
+    },
+    {
+      "id": "homesick",
+      "file": "public/music/homesick.m4a",
+      "source": "https://www.youtube.com/watch?v=RxiTWxP9Xf4",
+      "sourceTitle": "wave to earth - homesick (Official Lyric Video)",
+      "duration": 300.071,
+      "bytes": 4853743,
+      "sha256": "fea02e8e1b532f3c0bc7fba55edb6f037a42c289d9d44b693250e5e3e602792b"
+    },
+    {
+      "id": "idea",
+      "file": "public/music/idea.m4a",
+      "source": "https://www.youtube.com/watch?v=KUvOQlkLNhE",
+      "sourceTitle": "TAEMIN 태민 '이데아 (IDEA:理想)' MV",
+      "duration": 207.865,
+      "bytes": 3362543,
+      "sha256": "bea9c024e0a3f3d9daf2589a8ba489d20c1e35138aa6e4945bc729a64e1c457b"
+    },
+    {
+      "id": "lemon",
+      "file": "public/music/lemon.m4a",
+      "source": "https://www.youtube.com/watch?v=SX_ViT4Ra7k",
+      "sourceTitle": "米津玄師  Kenshi Yonezu  - Lemon",
+      "duration": 274.321,
+      "bytes": 4437292,
+      "sha256": "25ba2dfac70dc788a906c421f9475bf96a3372efb3f1af69fd95048bdd5ef562"
+    },
+    {
+      "id": "midnight",
+      "file": "public/music/midnight.m4a",
+      "source": "https://www.youtube.com/watch?v=OECt9mopaa0",
+      "sourceTitle": "Midnight",
+      "duration": 269.4,
+      "bytes": 9164471,
+      "sha256": "30d27319d6e69b6551517109a34dd3b3850d6f85c050d68a83ea9e2cdf362cb1"
+    },
+    {
+      "id": "my-all",
+      "file": "public/music/my-all.m4a",
+      "source": "https://www.bilibili.com/video/BV12M4y1W7vH/",
+      "sourceTitle": "顶级品质试听《My all》滨崎步超经典神曲--想要一直守护在你身旁，不管即将发生什麽，我将用我的全部，一直将你守护【Hi-Res】",
+      "duration": 320.149,
+      "bytes": 8258974,
+      "sha256": "4fffe7e557ac00e97e69eb0d4610c53f89af1c0a4c27ed6944fe5a8180042efa"
+    }
+  ],
+  "pending": []
+}

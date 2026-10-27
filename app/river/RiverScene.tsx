@@ -15,6 +15,7 @@ import referenceProfile from '../../tools/blender/river-reference-profile.json';
 import { portalSurface, animateFrameMaterial, continuousPavingMaterial, softFrameGlow } from './portalEffects';
 import { offsetDate, type RiverChat } from './timeline';
 import { riverCharacters, type RiverCharacter } from './characters';
+import { loadRiverAvatar, type RiverAvatar } from './avatar';
 import { RIVER_RUN_SPEED, RIVER_GAIT_RATE, RIVER_LANE_LIMIT, riverVelocity, riverFacing } from './locomotion';
 
 type Props = { character: RiverCharacter; language: 'zh' | 'en'; anchor: string; chats: RiverChat[]; teleportTo: {date:string;sequence:number}|null; paused: boolean; direction: number; strafe: number; onNear: (date: string | null) => void };
@@ -415,40 +416,23 @@ export default function RiverScene({ character, language, anchor, chats, telepor
     let mixer: T.AnimationMixer | undefined;
     let idleAction: T.AnimationAction | undefined, runAction: T.AnimationAction | undefined;
     let forwardSpeed = 0, lateralSpeed = 0;
-    const skeletons = new Set<T.Skeleton>();
-    new GLTFLoader().load(characterAsset.model, gltf => {
-      gltf.scene.traverse(object => {
-        if (object instanceof T.Mesh) {
-          object.castShadow = true; object.receiveShadow = true;
-          geometries.push(object.geometry);
-          const mats = Array.isArray(object.material) ? object.material : [object.material];
-          materials.push(...mats);
-          for (const mat of mats) {
-            if (mat instanceof T.MeshStandardMaterial) {
-              // Keep the authored skin, cloth, leather and metal response.
-              // Native game meshes use solid silhouettes and authored normal/ORM maps.
-              mat.transparent = false; mat.alphaTest = 0; mat.depthWrite = true;
-              if (mat.map) mat.map.anisotropy = Math.min(8,renderer.capabilities.getMaxAnisotropy());
-            }
-            for (const value of Object.values(mat)) if (value instanceof T.Texture) textures.push(value);
-          }
-          if (object instanceof T.SkinnedMesh) skeletons.add(object.skeleton);
-        }
-      });
-      if (disposed) { gltf.scene.traverse(object => { if (object instanceof T.Mesh) { object.geometry.dispose(); (Array.isArray(object.material) ? object.material : [object.material]).forEach(mat => mat.dispose()); } }); return; }
-      gltf.scene.scale.setScalar(characterAsset.scale);
-      gltf.scene.rotation.y = Math.PI; // Source rig faces +Z; corridor forward is -Z.
-      traveler.add(gltf.scene);
-      mixer = new T.AnimationMixer(gltf.scene);
-      const idle = gltf.animations.find(clip => /idle/i.test(clip.name));
-      const run = gltf.animations.find(clip => /run/i.test(clip.name));
-      if (idle) { idleAction = mixer.clipAction(idle); idleAction.play(); }
-      if (run) { runAction = mixer.clipAction(run); runAction.setEffectiveWeight(0).play(); }
-      root!.dataset.model = 'quaternius-game-rig'; root!.dataset.character = character;
+    let avatar: RiverAvatar | undefined;
+    loadRiverAvatar(characterAsset.model, character).then(loaded => {
+      if (disposed) { loaded.dispose(); return; }
+      avatar = loaded;
+      const model = avatar.vrm.scene;
+      model.scale.setScalar(characterAsset.scale);
+      model.rotation.y += Math.PI; // Canonical +Z forward -> corridor -Z.
+      traveler.add(model);
+      mixer = new T.AnimationMixer(model);
+      idleAction = mixer.clipAction(avatar.idleClip).play();
+      runAction = mixer.clipAction(avatar.runClip).setEffectiveWeight(0).play();
+      root!.dataset.model = 'vroid-anime-rig'; root!.dataset.character = character;
       root!.dataset.characterName = characterAsset.name; root!.dataset.characterAsset = characterAsset.model;
-      root!.dataset.animations = gltf.animations.map(clip => clip.name).join(',');
+      root!.dataset.animations = 'Idle,Sprint_Loop_Rig';
+      root!.dataset.palette = character === 'alexx' ? 'red-hair-crimson-clothing' : 'purple-clothing';
       modelReady = true; finishLoading();
-    }, undefined, () => { if (!disposed) { setModelFailed(true); modelReady = true; finishLoading(); } });
+    }).catch(error => { if (!disposed) { console.error('River avatar failed', error); setModelFailed(true); modelReady = true; finishLoading(); } });
     const shadowTex = canvasTexture(64, 64, ctx => { const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(32,51,59,.35)'); g.addColorStop(1, 'rgba(32,51,59,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64); });
     const shadowMat = new T.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }); materials.push(shadowMat);
     mesh(new T.PlaneGeometry(2.1, 2.1), shadowMat, traveler, 0, .01, 0).rotation.x = -Math.PI / 2;
@@ -629,6 +613,7 @@ export default function RiverScene({ character, language, anchor, chats, telepor
       runAction?.setEffectiveWeight(runWeight);
       runAction?.setEffectiveTimeScale(RIVER_GAIT_RATE * Math.max(.4, runWeight));
       mixer?.update(dt);
+      avatar?.vrm.update(dt);
       root!.dataset.animationTime = (runAction?.time ?? 0).toFixed(3);
       root!.dataset.runWeight = runWeight.toFixed(3);
       root!.dataset.animation = runAction?.isRunning() && runAction.getEffectiveWeight() > .5 ? 'Run' : 'Idle';
@@ -644,7 +629,7 @@ export default function RiverScene({ character, language, anchor, chats, telepor
       window.removeEventListener('pointerdown', playBackground); window.removeEventListener('keydown', playBackground);
       backgroundVideo.removeEventListener('playing', showVideo); backgroundVideo.removeEventListener('error', showStill);
       backgroundVideo.pause(); backgroundVideo.removeAttribute('src'); backgroundVideo.load();
-      pavingReflection.getRenderTarget().dispose(); mixer?.stopAllAction(); skeletons.forEach(skeleton => skeleton.dispose()); bridgeInstances.forEach(part => part.mesh.dispose());
+      pavingReflection.getRenderTarget().dispose(); mixer?.stopAllAction(); if (avatar) { mixer?.uncacheRoot(avatar.vrm.scene); avatar.dispose(); } bridgeInstances.forEach(part => part.mesh.dispose());
       cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', visibility); renderer.domElement.removeEventListener('webglcontextlost', contextLost);
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); ambientOcclusion.dispose(); bloom.dispose(); composer.dispose(); renderer.dispose(); renderer.domElement.remove();
     };

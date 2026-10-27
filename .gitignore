@@ -41,6 +41,10 @@ yarn-error.log*
 /outputs/
 /work/
 
+# Local media library (videos and the task database are never source assets)
+/media-data/
+/services/media-room/media-data/
+
 # OS metadata
 .DS_Store
 
@@ -48,3 +52,6 @@ yarn-error.log*
 *.blend[1-9]
 __pycache__/
 *.py[cod]
+
+# Downloaded music is deployed separately from source control.
+/public/music/*.m4a

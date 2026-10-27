@@ -1,4 +1,5 @@
 "use client";
+import Link from '../components/IslandLink';
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Maximize, X } from 'lucide-react';
@@ -64,7 +65,7 @@ export default function River() {
   }
   return <section ref={root} className="river-world" aria-label={t('时光走廊游戏场景','Corridor of Time game scene')}>
     {anchor && <RiverScene character={riverCharacterForIdentity(userId)} language={language} anchor={anchor} chats={chats} teleportTo={teleportTo} paused={!!selected||calendarOpen} direction={direction} strafe={strafe} onNear={setNear} />}
-    <header className="river-header"><div className="river-brand"><h1>{t('时光走廊','Corridor of Time')}</h1><span>CORRIDOR OF TIME</span></div><div className="river-actions"><TimeCalendar dates={availableDates} language={language} onSelect={teleport} onOpenChange={setCalendarOpen}/><button onClick={fullscreen} aria-label={t('切换全屏','Toggle fullscreen')}><Maximize size={17}/></button><a href="/"><ArrowLeft size={15}/>{t('返回小岛','Back to island')}</a></div></header>
+    <header className="river-header"><div className="river-brand"><h1>{t('时光走廊','Corridor of Time')}</h1><span>CORRIDOR OF TIME</span></div><div className="river-actions"><TimeCalendar dates={availableDates} language={language} onSelect={teleport} onOpenChange={setCalendarOpen}/><button onClick={fullscreen} aria-label={t('切换全屏','Toggle fullscreen')}><Maximize size={17}/></button><Link prefetch={false} href="/"><ArrowLeft size={15}/>{t('返回小岛','Back to island')}</Link></div></header>
     <div className="river-sample">{loading?t('正在读取聊天…','Loading chats…'):loadError||t(`已收藏 ${chats.reduce((n,c)=>n+c.messages.length,0)} 条聊天` ,`${chats.reduce((n,c)=>n+c.messages.length,0)} messages saved`)} <span>· {t('日期连续，光留住说过的话','A door for every day, a light for every memory')}</span></div>
     {fullscreenError && <button className="river-feedback" onClick={() => setFullscreenError('')}>{fullscreenError} ×</button>}
     {near && !selected && <button ref={interaction} className="river-interact" onClick={() => { setDirection(0); setStrafe(0); setSelected(near); }}><kbd>F</kbd><span>{chats.some(c => c.date === near) ? t('查看当天聊天','View this day’s chats') : t('这一天没有聊天','No chats this day')}<small>{near.replaceAll('-', '.')}</small></span><i>✧</i></button>}

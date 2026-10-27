@@ -5,6 +5,6 @@ export function riverCharacterForIdentity(userId: string | null): RiverCharacter
 }
 
 export const riverCharacters = {
-  alexx: { name: 'Alexx', model: '/models/river-alexx-v3.glb?motion=6', scale: 1.25 },
-  bv: { name: 'BV', model: '/models/river-bv-v3.glb?motion=6', scale: 1.25 },
+  alexx: { name: 'Alexx', model: '/models/river-alexx-anime-v1.vrm', scale: 1.25 },
+  bv: { name: 'BV', model: '/models/river-bv-anime-v1.vrm', scale: 1.25 },
 } as const;

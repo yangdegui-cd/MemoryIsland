@@ -1,0 +1,50 @@
+River of Time character assets (2026-10-27)
+
+Models: VRoid Studio official AvatarSample_C (Alexx) and AvatarSample_B (BV).
+Author: pixiv / VRoid.
+Source mirror: https://github.com/madjin/vrm-samples/tree/master/vroid/stable
+Terms: https://vroid.pixiv.help/hc/en-us/articles/4402394424089-VRoidPreset-A-Z
+The original VRM metadata and embedded textures are retained. Model terms are
+separate from the sample repository's code license. Do not imply endorsement.
+Changes in this app: red hair/clothing/shoes for Alexx, purple clothing and a
+moderate body/clothing silhouette adjustment for BV. These are applied by the
+shared runtime loader, not baked into the unmodified source VRM binaries.
+
+Sprint_Loop_Rig and Idle_Loop_Rig:
+https://github.com/pmndrs/viverse/tree/main/packages/viverse/assets
+Rest-pose retargeting adapted from its animation/index.ts.
+
+Copyright 2024 Bela Bohlender
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Link to License of robot.vrm from "FinBeenWhere?"
+https://creativecommons.org/licenses/by/4.0/
+
+License of @pixiv/three-vrm
+Copyright (c) 2019-2025 pixiv Inc.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

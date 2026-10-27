@@ -1,4 +1,5 @@
 "use client";
+import Link from '../components/IslandLink';
 import {useState,useEffect,useRef,useCallback} from 'react';
 import {Upload,X,ArrowLeft,Maximize2,Images} from 'lucide-react';
 import MemoryScene from '../components/MemoryScene';
@@ -85,7 +86,7 @@ export default function Album(){
     <header className="river-header"><div className="river-brand"><h1>回忆相册</h1><span>HOUSE OF MEMORIES</span></div><div className="river-actions">
       <button aria-label="收藏照片" title="收藏照片" onClick={()=>{setDate(today());setUploadOpen(true)}}><Upload size={17}/></button>
       <button aria-label="全部照片" title="全部照片" onClick={()=>setShowAll(true)}><Images size={17}/></button>
-      <button aria-label="切换全屏" onClick={fullscreen}><Maximize2 size={17}/></button><a href="/"><ArrowLeft size={15}/>返回小岛</a>
+      <button aria-label="切换全屏" onClick={fullscreen}><Maximize2 size={17}/></button><Link prefetch={false} href="/"><ArrowLeft size={15}/>返回小岛</Link>
     </div></header>
     {error&&<div className="notice" role="alert">{error}</div>}{message&&!busy&&<p className="success" role="status">{message}</p>}
     {uploadOpen&&<div className="album-panel-backdrop"><section className="panel editor" role="dialog" aria-modal="true" aria-label="收藏照片">

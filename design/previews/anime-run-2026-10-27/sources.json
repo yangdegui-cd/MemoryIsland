@@ -1,0 +1,123 @@
+[
+  {
+    "file": "AvatarSample_A.vrm",
+    "url": "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/stable/AvatarSample_A.vrm",
+    "bytes": 15096320,
+    "sha256": "b86b0b8a66d48911431d6f920a5211a974226f83aa672eca3f3dfade58ac346e",
+    "meta": {
+      "version": "",
+      "author": "VRoid",
+      "contactInformation": "",
+      "reference": "",
+      "title": "AvatarSample_A",
+      "texture": 27,
+      "allowedUserName": "Everyone",
+      "violentUssageName": "Allow",
+      "sexualUssageName": "Allow",
+      "commercialUssageName": "Allow",
+      "otherPermissionUrl": "",
+      "licenseName": "Other",
+      "otherLicenseUrl": ""
+    },
+    "animations": []
+  },
+  {
+    "file": "AvatarSample_B.vrm",
+    "url": "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/stable/AvatarSample_B.vrm",
+    "bytes": 15433736,
+    "sha256": "4a271bd3b5a3d19e054fd113ee154635b72e7141f4a8ccbcdba3c7f9cea6ee8d",
+    "meta": {
+      "version": "",
+      "author": "VRoid",
+      "contactInformation": "",
+      "reference": "",
+      "title": "AvatarSample_B",
+      "texture": 29,
+      "allowedUserName": "Everyone",
+      "violentUssageName": "Allow",
+      "sexualUssageName": "Allow",
+      "commercialUssageName": "Allow",
+      "otherPermissionUrl": "",
+      "licenseName": "Other",
+      "otherLicenseUrl": ""
+    },
+    "animations": []
+  },
+  {
+    "file": "AvatarSample_C.vrm",
+    "url": "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/stable/AvatarSample_C.vrm",
+    "bytes": 13132268,
+    "sha256": "395d5b04696e888f07bc856ae01bf72a974b7e773132c7443dc59d1688045b8a",
+    "meta": {
+      "version": "",
+      "author": "VRoid",
+      "contactInformation": "",
+      "reference": "",
+      "title": "AvatarSample_C",
+      "texture": 24,
+      "allowedUserName": "Everyone",
+      "violentUssageName": "Allow",
+      "sexualUssageName": "Allow",
+      "commercialUssageName": "Allow",
+      "otherPermissionUrl": "",
+      "licenseName": "Other",
+      "otherLicenseUrl": ""
+    },
+    "animations": []
+  },
+  {
+    "file": "run.glb",
+    "url": "https://raw.githubusercontent.com/pmndrs/viverse/main/packages/viverse/assets/run.glb",
+    "bytes": 61024,
+    "sha256": "1307fbc7038f01cf2f2718bc46c7606f1109caa3c6e3e55fa4ede5716c39f994",
+    "meta": {},
+    "animations": [
+      "Sprint_Loop_Rig"
+    ],
+    "nodes": [
+      "head",
+      "neck",
+      "leftIndexDistal",
+      "leftIndexIntermediate",
+      "leftIndexProximal",
+      "leftMiddleDistal",
+      "leftMiddleIntermediate",
+      "leftMiddleProximal",
+      "leftLittleDistal",
+      "leftLittleIntermediate",
+      "leftLittleProximal",
+      "leftRingDistal",
+      "leftRingIntermediate",
+      "leftRingProximal",
+      "leftThumbDistal"
+    ]
+  },
+  {
+    "file": "idle.glb",
+    "url": "https://raw.githubusercontent.com/pmndrs/viverse/main/packages/viverse/assets/idle.glb",
+    "bytes": 76796,
+    "sha256": "fbe7637bfa9d64f0df90a90dd8d492c6067dd6c83dd65da78c7a8d23e64db3e6",
+    "meta": {},
+    "animations": [
+      "Idle_Loop_Rig"
+    ]
+  },
+  {
+    "file": "viverse-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/pmndrs/viverse/main/LICENSE",
+    "bytes": 2250,
+    "sha256": "3734dc49128c9ec87673494424b8cc07063855b368b2570dac921b6f1a5ec957"
+  },
+  {
+    "file": "vrm-samples-README.md",
+    "url": "https://raw.githubusercontent.com/madjin/vrm-samples/master/README.md",
+    "bytes": 1263,
+    "sha256": "be561d72c7138eb362d98db71fa4446dc5c6e36831e182288970b5a6e1c628dc"
+  },
+  {
+    "file": "three-vrm.module.js",
+    "url": "https://unpkg.com/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.js",
+    "bytes": 988239,
+    "sha256": "bfc0f3bd49ee5b706b3055d366759e881f20dee32be344c4c8f586600f223434"
+  }
+]

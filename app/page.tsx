@@ -1,4 +1,5 @@
 "use client";
+import Link from './components/IslandLink';
 
 import {useIslandLanguage} from './components/useIslandLanguage';
 import {Landmark, Waves, Gamepad2, Cloud, Sprout} from 'lucide-react';
@@ -6,8 +7,8 @@ import './island-home.css';
 import IslandIntro from './components/IslandIntro';
 
 const copy = {
-  zh: {brand:'日常小岛', title:'欢迎回到你的小岛', hint:'点击一处，开始探索', palace:'记忆宫殿', river:'时光走廊', game:'游戏屋', sky:'心情天空'},
-  en: {brand:'Daily Island', title:'Welcome to your little island', hint:'Pick a place. Begin exploring.', palace:'Memory Palace', river:'Corridor of Time', game:'Game House', sky:'Mood Sky'},
+  zh: {brand:'日常小岛', title:'Flash 和章鱼的\n小岛', hint:'点击一处，开始探索', palace:'记忆宫殿', river:'时光走廊', game:'游戏屋', sky:'心情天空'},
+  en: {brand:'Daily Island', title:'Flash & Octopus’s\nlittle island', hint:'Pick a place. Begin exploring.', palace:'Memory Palace', river:'Corridor of Time', game:'Game House', sky:'Mood Sky'},
 };
 
 export default function Home(){
@@ -23,7 +24,7 @@ export default function Home(){
     <IslandIntro language={language}/>
     <div className="island-art" aria-hidden="true"/>
     <header className="island-header">
-      <a href="/" className="island-wordmark"><Sprout aria-hidden="true"/>{t.brand}</a>
+      <Link prefetch={false} href="/" className="island-wordmark"><Sprout aria-hidden="true"/>{t.brand}</Link>
       <div className="island-language" role="group" aria-label={language==='zh'?'界面语言':'Interface language'}>
         <button type="button" lang="zh-CN" aria-pressed={language==='zh'} onClick={()=>changeLanguage('zh')}>中文</button>
         <button type="button" lang="en" aria-pressed={language==='en'} onClick={()=>changeLanguage('en')}>EN</button>
@@ -31,7 +32,7 @@ export default function Home(){
     </header>
     <h1 className="island-welcome">{t.title}</h1>
     <nav className="island-destinations" aria-label={language==='zh'?'探索小岛':'Explore the island'}>
-      {destinations.map(({name,href,className,Icon})=><a key={className} href={href} className={'island-destination '+className}><Icon size={21} aria-hidden="true"/><span>{name}</span><i aria-hidden="true"/></a>)}
+      {destinations.map(({name,href,className,Icon})=><Link prefetch={false} key={className} href={href} className={'island-destination '+className}><Icon size={21} aria-hidden="true"/><span>{name}</span><i aria-hidden="true"/></Link>)}
     </nav>
     <div className="island-fireflies" aria-hidden="true">{Array.from({length:12},(_,i)=><i key={i} style={{left:`${8+(i*23)%85}%`,top:`${30+(i*17)%58}%`,animationDelay:`${i*.43}s`}}/>)}</div>
     <p className="island-hint">{t.hint}</p>

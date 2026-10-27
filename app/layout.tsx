@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import Shell from './components/Shell';
+import BackgroundMusic from './components/BackgroundMusic';
 import {PeopleProvider,type Identity} from './components/PeopleProvider';
 import {readIdentity} from '../lib/identity';
 export const dynamic='force-dynamic';
@@ -10,5 +11,5 @@ export default async function Layout({children}:{children:React.ReactNode}){
   // document navigation. A lookup failure stays pending for the client retry.
   let initialIdentity:Identity|undefined;
   try{initialIdentity=await readIdentity();}catch{}
-  return <html lang="zh-CN"><body><PeopleProvider initialIdentity={initialIdentity}><Shell>{children}</Shell></PeopleProvider></body></html>;
+  return <html lang="zh-CN"><body><PeopleProvider initialIdentity={initialIdentity}><Shell>{children}</Shell><BackgroundMusic/></PeopleProvider></body></html>;
 }

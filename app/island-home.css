@@ -17,3 +17,11 @@ main.island-home-root{max-width:none;margin:0;padding:0;width:100%}
 @keyframes intro-island-in{from{opacity:0;transform:translateX(-50%) scale(.92)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 @media(max-width:700px){.intro-island{width:82%;top:22%;height:30%}.island-intro-copy{top:57%}.island-intro-copy h2{letter-spacing:4px}.island-intro-copy p{letter-spacing:1px}}
 @media(prefers-reduced-motion:reduce){.island-intro-copy,.intro-island{animation:none}}
+
+.island-welcome{overflow-wrap:anywhere}
+
+.island-home[data-language=en] .island-welcome{font-size:clamp(24px,2.5vw,38px)}
+
+.island-welcome{font-size:clamp(24px,2.5vw,38px)}
+
+.island-welcome{white-space:pre-line}

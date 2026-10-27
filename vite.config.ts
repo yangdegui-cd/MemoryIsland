@@ -45,6 +45,10 @@ export default defineConfig(async ({ command }) => {
 
   return {
     server: {
+      proxy: {
+        '/api/media/': { target: 'http://127.0.0.1:8792', changeOrigin: false },
+        '/media-stream/': { target: 'http://127.0.0.1:8792', changeOrigin: false },
+      },
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }
         : {}),
