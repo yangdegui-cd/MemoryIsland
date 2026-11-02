@@ -6,6 +6,7 @@
 @media(prefers-reduced-motion:reduce){.music-record,.music-bars i,.music-loading,.music-panel{animation:none}.music-trigger{transition:none}}
 
 .music-list button:disabled{cursor:default;opacity:.45}
+.music-list li{display:flex;align-items:center;gap:3px}.music-list li>button{width:auto;flex:1;min-width:0}.music-source{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex-shrink:0;min-width:54px;min-height:44px;padding:5px;color:#78886c;font-size:10px;text-decoration:none;border-radius:8px;touch-action:manipulation}.music-source:hover{color:#30482c;background:#edf0e4}.music-source:focus-visible{outline:2px solid #7c936a;outline-offset:-2px}
 .is-playing .music-trigger>svg{transform-origin:50% 65%;animation:music-note-sway 3.6s ease-in-out infinite}
 .is-playing .music-trigger-dot{animation:music-dot-breathe 2.8s ease-in-out infinite}
 @keyframes music-note-sway{0%,100%{transform:rotate(-7deg) translateY(0)}50%{transform:rotate(7deg) translateY(-1px)}}

@@ -1,5 +1,5 @@
 {
-  "downloadedAt": "2026-11-01",
+  "downloadedAt": "2026-11-02",
   "tracks": [
     {
       "id": "autumn",
@@ -135,6 +135,51 @@
       "duration": 306.248,
       "bytes": 4953619,
       "sha256": "e80e07b9c16e1a2933b644f68c9eefb85ca78d38cfdcccde6ffe2209ab5b871c"
+    },
+    {
+      "id": "norwegian-forest",
+      "file": "public/music/norwegian-forest.m4a",
+      "source": "https://www.youtube.com/watch?v=gPpZJlE0Ca8",
+      "sourceTitle": "伍佰 Wu Bai&China Blue【挪威的森林 Norwegian forest】Official Music Video",
+      "duration": 387.773,
+      "bytes": 6272419,
+      "sha256": "70ed2ad5075177755cfb598d09f4b86b7b1ea37b2b7fc1a96227e0d6909d29b5"
+    },
+    {
+      "id": "dance-monkey-mix",
+      "file": "public/music/dance-monkey-mix.m4a",
+      "source": "https://www.youtube.com/watch?v=CKg4WARv_hA",
+      "sourceTitle": "Dance Monkey - Tones and I (Lyrics) || Ed Sheeran, The Chainsmokers,... (Mix Lyrics)",
+      "duration": 928.659,
+      "bytes": 15019606,
+      "sha256": "1df6d14cadcfd0a51e00526c241918b8ce6aec373fc5e1f172702776c17f44bf"
+    },
+    {
+      "id": "wake-live",
+      "file": "public/music/wake-live.m4a",
+      "source": "https://www.youtube.com/watch?v=e33zCUm1ZnY",
+      "sourceTitle": "Wake (Live from Summercamp) - Hillsong Young & Free",
+      "duration": 279.22,
+      "bytes": 4516515,
+      "sha256": "35a3e92bf63cb60eb307671ced0a48d9e2c318c957cdf40e7418a3f39846b8eb"
+    },
+    {
+      "id": "try-live",
+      "file": "public/music/try-live.m4a",
+      "source": "https://www.youtube.com/watch?v=ivPEKaBHjYA",
+      "sourceTitle": "P!NK - Try (The Truth About Love - Live From Los Angeles)",
+      "duration": 270.118,
+      "bytes": 4369311,
+      "sha256": "0a4dbb7e71f9a0b23d5edacf3d65eeb37657fc585087019e09a3c7436a2235d0"
+    },
+    {
+      "id": "far-away-from-home",
+      "file": "public/music/far-away-from-home.m4a",
+      "source": "https://www.youtube.com/watch?v=y8ihgjjVo48",
+      "sourceTitle": "《Far Away From Home》曾被誉全球最好听的歌曲时隔20年依然动听",
+      "duration": 261.944,
+      "bytes": 4237124,
+      "sha256": "10204d7b9042596ddfeebf840a9d580683da2a6967f33bec18bae1f703f5d3e5"
     }
   ],
   "pending": []

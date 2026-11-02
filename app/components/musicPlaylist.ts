@@ -16,6 +16,11 @@ export const musicPlaylist:MusicTrack[] = [
   {id:'sweet-dreams',title:'Sweet Dreams',artist:'THEN · Cinematic Techno',src:'/music/sweet-dreams.m4a',source:'https://www.youtube.com/watch?v=0QAKKYJJ2l0'},
   {id:'dissociation',title:'Dissociation',artist:'Aaryan Shah',src:'/music/dissociation.m4a',source:'https://www.youtube.com/watch?v=e4IHnhzYezE'},
   {id:'you-rock-my-world',title:'You Rock My World',artist:'Michael Jackson',src:'/music/you-rock-my-world.m4a',source:'https://www.youtube.com/watch?v=iCuyFxSe6Mg'},
+  {id:'norwegian-forest',title:'挪威的森林 · Norwegian Forest',artist:'伍佰 Wu Bai & China Blue',src:'/music/norwegian-forest.m4a',source:'https://www.youtube.com/watch?v=gPpZJlE0Ca8'},
+  {id:'dance-monkey-mix',title:'Dance Monkey · 合辑 / Mix',artist:'Jolie Lyrics',src:'/music/dance-monkey-mix.m4a',source:'https://www.youtube.com/watch?v=CKg4WARv_hA'},
+  {id:'wake-live',title:'Wake · Live from Summercamp',artist:'Hillsong Young & Free',src:'/music/wake-live.m4a',source:'https://www.youtube.com/watch?v=e33zCUm1ZnY'},
+  {id:'try-live',title:'Try · Live from Los Angeles',artist:'P!NK',src:'/music/try-live.m4a',source:'https://www.youtube.com/watch?v=ivPEKaBHjYA'},
+  {id:'far-away-from-home',title:'Far Away From Home',artist:'Groove Coverage',src:'/music/far-away-from-home.m4a',source:'https://www.youtube.com/watch?v=y8ihgjjVo48'},
 ];
 
 export const playableMusic = musicPlaylist.filter(track=>track.src);
