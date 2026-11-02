@@ -10,7 +10,11 @@
 
 下载音频放在 `public/music/*.m4a`，构建复制到 `dist/client/music/`，发布后同步到 Nginx 的 `/var/www/daily-island/static/music/`，由 Nginx 提供缓存和 Range 请求。音频文件被 Git 忽略，构建前需从发布备份恢复；不要只检出源码就覆盖正在运行的音频目录。下载 Cookie、临时签名 URL 和完整下载元数据不进入源码或服务器。
 
-`docs/music-sources.json` 记录已落地的 9 首音频的来源、时长、大小与 SHA-256。采用来源自身的 MV/PV 或歌曲版本，不把试听片段冒充完整版。9 首均已落地为完整音频文件，不依赖浏览器中的第三方音乐登录。
+`docs/music-sources.json` 记录已落地的 15 首音频的来源、时长、大小与 SHA-256。采用来源自身的 MV/PV 或歌曲版本，不把试听片段冒充完整版。15 首均已落地为完整音频文件，不依赖浏览器中的第三方音乐登录。
+
+## 2026-11-01 歌单补充
+
+新增 No Hands、天堂、Chicago、Sweet Dreams、Dissociation、You Rock My World，保留聊天分享的原始链接版本。《天堂》采用腾格尔《歌手2018》完整现场版本，《Sweet Dreams》采用 THEN 的 Cinematic Techno 版本。既有 9 首仍保留，歌单共 15 首。
 
 ## 验证
 

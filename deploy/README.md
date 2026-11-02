@@ -4,8 +4,8 @@
 SSH：`ssh -i ~/.ssh/id_rsa ubuntu@43.135.170.243`。root 不接受此密钥。
 
 - 服务：Nginx 443 HTTPS → Docker 容器 daily-island（127.0.0.1:8787）；80 用于跳转和证书验证。
-- 镜像：daily-island:music-20261027T102315Z-nav；重启策略 unless-stopped。
-- 当前发布文件：/home/ubuntu/daily-island-music-20261027T102315Z-nav。旧发布目录保留。
+- 镜像：daily-island:music-six-20261101；重启策略 unless-stopped。
+- 当前发布文件：/home/ubuntu/daily-island-music-six-20261101。旧发布目录保留。
 - 持久化数据：/opt/daily-island/data（d1 SQLite、r2 照片文件）。更新镜像不应删除这个目录。
 - 登录沿用项目的 Alexx / BV 密码登录，首次使用由本人设置密码。未复制本机预览数据库或照片。
 - 使用 HTTPS 域名访问并登录；登录会话 Cookie 设置 Secure、HttpOnly 和 SameSite=Lax。
@@ -117,3 +117,11 @@ Nginx 新增 `/music/` 静态服务；9 首音频的 HEAD 长度、首段/中段
 最终切换前备份：`/opt/daily-island/backups/data-music-20261027T102315Z-nav.tar.gz`；初次发布前原版本备份：`/opt/daily-island/backups/data-music-20261027T102315Z.tar.gz`。原首页标题版本容器 `daily-island-before-music-20261027T102315Z` 保留用于回退。Nginx 配置备份位于 `/etc/nginx/backups/daily-island.pre-music-20261027T102315Z`。本次没有新增数据库迁移，209 条记录、2 个账号保留；现有媒体服务代码与本地哈希一致，无需重新部署媒体容器。
 
 验证：类型检查与生产构建通过，27 项前端测试和 7 项媒体服务测试通过；7 个公开页面、身份与匿名受保护接口、页面引用的 JS/CSS、全部音乐 Range 均通过检查。现有图片压缩变体和旧哈希资源保留。
+
+## 2026-11-01 补充六首聊天推荐歌曲
+
+新增 No Hands、天堂（腾格尔《歌手2018》现场版）、Chicago、Sweet Dreams（THEN Cinematic Techno）、Dissociation、You Rock My World。歌单共 15 首，音频完整解码并记录于 `docs/music-sources.json`。
+
+发布镜像 `daily-island:music-six-20261101`，目录 `/home/ubuntu/daily-island-music-six-20261101`。保留原持久化数据、容器运行参数和媒体室服务；Nginx 静态目录增量同步。切换前数据备份 `/opt/daily-island/backups/data-music-six-20261101.tar.gz`，旧容器 `daily-island-before-music-six-20261101` 保留用于回退。
+
+验证：15 首服务器文件哈希一致；6 首新增音频 HEAD 200，开头、中段、末尾 Range 206 且字节匹配；线上歌单脚本与构建一致。浏览器显示 15 首并载入新增歌曲，播放状态无媒体错误。播放器 6 项测试、类型检查及生产构建通过。

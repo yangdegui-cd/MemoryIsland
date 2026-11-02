@@ -1,5 +1,5 @@
 {
-  "downloadedAt": "2026-10-27",
+  "downloadedAt": "2026-11-01",
   "tracks": [
     {
       "id": "autumn",
@@ -81,6 +81,60 @@
       "duration": 320.149,
       "bytes": 8258974,
       "sha256": "4fffe7e557ac00e97e69eb0d4610c53f89af1c0a4c27ed6944fe5a8180042efa"
+    },
+    {
+      "id": "no-hands",
+      "file": "public/music/no-hands.m4a",
+      "source": "https://www.youtube.com/watch?v=DeX3Tss3AqE",
+      "sourceTitle": "Waka Flocka Flame - No Hands (feat. Roscoe Dash and Wale) | Lyrics",
+      "duration": 262.594,
+      "bytes": 4247847,
+      "sha256": "514f219c7431d0042f90bd412b1a79a4675ed3b6a8d99ad388ce4f9605d57216"
+    },
+    {
+      "id": "heaven",
+      "file": "public/music/heaven.m4a",
+      "source": "https://www.youtube.com/watch?v=H2mvc0miJ-w",
+      "sourceTitle": "【纯享】 #腾格尔 重磅演绎《#天堂》  浓郁东方高原氛围震惊海外歌手 | 歌手2018 | Singer 2018 | MangoTV",
+      "duration": 377.487,
+      "bytes": 6105728,
+      "sha256": "a73383eb1700611c2628abec7a62f11fa80a71850cb5cc99946c14e9d69f349e"
+    },
+    {
+      "id": "chicago",
+      "file": "public/music/chicago.m4a",
+      "source": "https://www.youtube.com/watch?v=Y_8mUx4VOmo",
+      "sourceTitle": "Michael Jackson - Chicago (Official Audio)",
+      "duration": 247.432,
+      "bytes": 4002425,
+      "sha256": "31c94e8220d12da93b18afcc4b12dc5afd66d7c8b28e1a27d06dc3baeb202c50"
+    },
+    {
+      "id": "sweet-dreams",
+      "file": "public/music/sweet-dreams.m4a",
+      "source": "https://www.youtube.com/watch?v=0QAKKYJJ2l0",
+      "sourceTitle": "THEN・❥・ Sweet Dreams | Cinematic Techno",
+      "duration": 263.988,
+      "bytes": 4270186,
+      "sha256": "fb9c2c663e00c4e6e86b165d9aad368f6b24240d19add39f6bf270dd767174ab"
+    },
+    {
+      "id": "dissociation",
+      "file": "public/music/dissociation.m4a",
+      "source": "https://www.youtube.com/watch?v=e4IHnhzYezE",
+      "sourceTitle": "Aaryan Shah - Dissociation [Official Audio]",
+      "duration": 276.062,
+      "bytes": 4465444,
+      "sha256": "5b0b988059741a0c41ea3b57732a81b34437d26a4ce899a095bab55bc921f3f8"
+    },
+    {
+      "id": "you-rock-my-world",
+      "file": "public/music/you-rock-my-world.m4a",
+      "source": "https://www.youtube.com/watch?v=iCuyFxSe6Mg",
+      "sourceTitle": "Michael Jackson - You Rock My World (lyrics)",
+      "duration": 306.248,
+      "bytes": 4953619,
+      "sha256": "e80e07b9c16e1a2933b644f68c9eefb85ca78d38cfdcccde6ffe2209ab5b871c"
     }
   ],
   "pending": []
