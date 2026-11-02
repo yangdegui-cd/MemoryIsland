@@ -21,6 +21,7 @@ export const musicPlaylist:MusicTrack[] = [
   {id:'wake-live',title:'Wake · Live from Summercamp',artist:'Hillsong Young & Free',src:'/music/wake-live.m4a',source:'https://www.youtube.com/watch?v=e33zCUm1ZnY'},
   {id:'try-live',title:'Try · Live from Los Angeles',artist:'P!NK',src:'/music/try-live.m4a',source:'https://www.youtube.com/watch?v=ivPEKaBHjYA'},
   {id:'far-away-from-home',title:'Far Away From Home',artist:'Groove Coverage',src:'/music/far-away-from-home.m4a',source:'https://www.youtube.com/watch?v=y8ihgjjVo48'},
+  {id:'dancing-with-your-ghost-acoustic',title:'Dancing With Your Ghost · Acoustic',artist:'Sasha Alex Sloan',src:'/music/dancing-with-your-ghost-acoustic.m4a',source:'https://www.youtube.com/watch?v=a5RQ0z29XoU'},
 ];
 
 export const playableMusic = musicPlaylist.filter(track=>track.src);

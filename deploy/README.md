@@ -4,8 +4,8 @@
 SSH：`ssh -i ~/.ssh/id_rsa ubuntu@43.135.170.243`。root 不接受此密钥。
 
 - 服务：Nginx 443 HTTPS → Docker 容器 daily-island（127.0.0.1:8787）；80 用于跳转和证书验证。
-- 镜像：daily-island:music-links-20261102-v4；重启策略 unless-stopped。
-- 当前发布文件：/home/ubuntu/daily-island-music-links-20261102-v4。旧发布目录保留。
+- 镜像：daily-island:music-links-20261102-v5；重启策略 unless-stopped。
+- 当前发布文件：/home/ubuntu/daily-island-music-links-20261102-v5。旧发布目录保留。
 - 持久化数据：/opt/daily-island/data（d1 SQLite、r2 照片文件）。更新镜像不应删除这个目录。
 - 登录沿用项目的 Alexx / BV 密码登录，首次使用由本人设置密码。未复制本机预览数据库或照片。
 - 使用 HTTPS 域名访问并登录；登录会话 Cookie 设置 Secure、HttpOnly 和 SameSite=Lax。
@@ -134,3 +134,12 @@ Nginx 新增 `/music/` 静态服务；9 首音频的 HEAD 长度、首段/中段
 发布镜像 `daily-island:music-links-20261102-v4`，目录 `/home/ubuntu/daily-island-music-links-20261102-v4`。切换前数据备份 `/opt/daily-island/backups/data-music-links-20261102-v4.tar.gz`；旧容器 `daily-island-before-music-links-20261102-v4` 保留用于回退。沿用持久化目录及容器参数，媒体室仍使用 `daily-island-media:20261025`。Nginx 静态目录增量同步并保留旧哈希文件；没有数据库迁移。
 
 验证：20 首服务器音频哈希均与清单一致；5 首新增音频完整解码通过，公网 HEAD 200，首段、中段、末段 Range 206 且字节匹配；线上播放器脚本与本地生产构建一致。浏览器显示 20 首，每首来源链接均在新标签页打开；实际打开挪威的森林原视频后，小岛音频保持原曲并继续推进。5 首新增歌曲均在生产浏览器载入、进度推进且无媒体错误。小屏播放面板已截图检查。播放器 6 项测试、类型检查和生产构建通过。
+
+
+## 2026-11-02 Dancing With Your Ghost（Acoustic）
+
+新增 Sasha Alex Sloan 的 Dancing With Your Ghost（Acoustic Video，原链接 `a5RQ0z29XoU`），歌单共 21 首，时长约 3 分 35 秒。音频完整解码通过，来源、大小和 SHA-256 已写入 `docs/music-sources.json`。
+
+发布镜像 `daily-island:music-links-20261102-v5`，目录 `/home/ubuntu/daily-island-music-links-20261102-v5`。切换前备份 `/opt/daily-island/backups/data-music-links-20261102-v5.tar.gz`，旧容器 `daily-island-before-music-links-20261102-v5` 保留；持久化目录、媒体室、Nginx 配置与原有歌曲不变。
+
+验证：生产构建通过，21 首发布音频哈希匹配。新增音频公网 HEAD 200、首段/中段/末段 Range 206 且字节一致，线上脚本与构建一致。浏览器歌单显示 21 首，实际加载 215.435 秒音频并持续播放，无媒体错误；原视频入口指向用户给出的链接。

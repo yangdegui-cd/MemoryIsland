@@ -10,7 +10,7 @@
 
 下载音频放在 `public/music/*.m4a`，构建复制到 `dist/client/music/`，发布后同步到 Nginx 的 `/var/www/daily-island/static/music/`，由 Nginx 提供缓存和 Range 请求。音频文件被 Git 忽略，构建前需从发布备份恢复；不要只检出源码就覆盖正在运行的音频目录。下载 Cookie、临时签名 URL 和完整下载元数据不进入源码或服务器。
 
-`docs/music-sources.json` 记录已落地的 20 首音频的来源、时长、大小与 SHA-256。采用来源自身的 MV/PV 或歌曲版本，不把试听片段冒充完整版。20 首均已落地为完整音频文件，不依赖浏览器中的第三方音乐登录。
+`docs/music-sources.json` 记录已落地的 21 首音频的来源、时长、大小与 SHA-256。采用来源自身的 MV/PV 或歌曲版本，不把试听片段冒充完整版。21 首均已落地为完整音频文件，不依赖浏览器中的第三方音乐登录。
 
 ## 2026-11-01 歌单补充
 
@@ -23,3 +23,7 @@ Node 22：`node --experimental-transform-types --test tests/music-playback.test.
 ## 2026-11-02 原视频入口
 
 新增伍佰 & China Blue《挪威的森林》官方 MV 音频、Jolie Lyrics 的 Dance Monkey 合辑（原链接完整约 15 分 29 秒）、Hillsong Young & Free 的 Wake（Live from Summercamp）、P!NK 的 Try（Live from Los Angeles）以及 Far Away From Home（用户分享的环球视听1980版本），歌单共 20 首。每行右侧提供中英文“原视频 / Video”链接，保留分享的 YouTube 或 Bilibili 版本，在新标签页打开。来源链接与选歌按钮相互独立，打开来源不会切歌或重置播放进度。
+
+## 2026-11-02 Dancing With Your Ghost
+
+新增 Sasha Alex Sloan《Dancing With Your Ghost》的 Acoustic Video 版本，保留用户分享的原视频链接与完整约 3 分 35 秒音频。歌单共 21 首。

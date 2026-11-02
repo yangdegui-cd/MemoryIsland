@@ -180,6 +180,15 @@
       "duration": 261.944,
       "bytes": 4237124,
       "sha256": "10204d7b9042596ddfeebf840a9d580683da2a6967f33bec18bae1f703f5d3e5"
+    },
+    {
+      "id": "dancing-with-your-ghost-acoustic",
+      "file": "public/music/dancing-with-your-ghost-acoustic.m4a",
+      "source": "https://www.youtube.com/watch?v=a5RQ0z29XoU",
+      "sourceTitle": "Sasha Alex Sloan - Dancing With Your Ghost (Acoustic Video)",
+      "duration": 215.435,
+      "bytes": 3484959,
+      "sha256": "70b3ebd282c10d899f546a03d7ab97e339e3a0df4fb008b17ee036604612ab72"
     }
   ],
   "pending": []
