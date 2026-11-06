@@ -30,7 +30,7 @@ try{
     const response=await fetch(origin+url,{method,headers:{origin,'User-Agent':'Audit QA Browser','X-Real-IP':'192.0.2.5',...(cookie?{cookie}:{}),...(body?{'Content-Type':'application/json'}:{}),...extra},...(body?{body:JSON.stringify(body)}:{})});
     const data=response.status===204?null:await response.json();
     assert.equal(response.status,expected,JSON.stringify(data));checks++;
-    return {data,cookie:response.headers.get('set-cookie')?.split(';')[0]||cookie};
+    return {data,cookie:response.headers.get('set-cookie')?.split(';')[0]||cookie,headers:response.headers};
   }
   const last=()=>db.prepare('SELECT * FROM audit_events ORDER BY rowid DESC LIMIT 1').first();
   const count=async()=>Number((await db.prepare('SELECT count(*) AS n FROM audit_events').first()).n);
@@ -90,9 +90,45 @@ try{
   const all=JSON.stringify((await db.prepare('SELECT * FROM audit_events').all()).results);
   for(const secret of [password,secretNote,a.cookie,b.cookie,key.data.token,'PRIVATE_KEY_NAME','PRIVATE_CHAT_TITLE','PRIVATE_PHOTO_TITLE',share.data.url.split('/').pop(),'private-token'])assert.ok(!all.includes(secret),'Secret leaked into audit log');
 
+  // The browser viewer exposes a limited projection to the two authenticated
+  // accounts. Reading the audit feed must not create another audit event.
+  await call('/api/audit',undefined,'','GET',401);
+  await call('/api/audit',undefined,reset.cookie,'GET',401);
+  const bAgain=await call('/api/identity',{action:'login',name:'BV',password:password+'-new'});
+  const beforeRead=await count();
+  const feed=await call('/api/audit?limit=100',undefined,a.cookie);
+  await call('/api/audit',undefined,bAgain.cookie);assert.equal(await count(),beforeRead);
+  assert.match(feed.headers.get('cache-control'),/private, no-store/);assert.ok(feed.headers.get('vary').split(',').map(value=>value.trim()).includes('Cookie'));
+  assert.ok(feed.data.items.some(item=>item.actorId==='alexx'));assert.ok(feed.data.items.some(item=>item.actorId==='bv'));
+  assert.ok(feed.data.items.every(item=>!['identity.check','record.list','photo.read'].includes(item.action)));
+  const bvFeed=await call('/api/audit?actor=bv&view=all&limit=100',undefined,a.cookie);assert.ok(bvFeed.data.items.every(item=>item.actorId==='bv'));
+  const security=await call('/api/audit?view=auth',undefined,a.cookie);assert.ok(security.data.items.some(item=>item.actorId===null&&item.subjectId==='bv'&&item.reason==='incorrect_password'));
+  const visits=await call('/api/audit?view=visits',undefined,a.cookie);assert.ok(visits.data.items.every(item=>['page.view','page.resume'].includes(item.action)));
+  const pageHtml=await(await fetch(origin+'/activity')).text();assert.match(pageHtml,/identity-backdrop/);assert.doesNotMatch(pageHtml,/PRIVATE_NOTE_NEVER_LOG/);
+  for(const query of ['actor=stranger','view=wrong','limit=101','limit=-1','limit=1.5','date=2026-02-30','cursor=invalid'])await call('/api/audit?'+query,undefined,a.cookie,'GET',400);
+  const boundary=Date.parse('2001-01-01T00:00:00+08:00');
+  for(const delta of [-1,0,3600000,3600000,86400000]){
+    await db.prepare('INSERT INTO audit_events (id,created_at,actor_id,actor_name,auth_type,session_ref,action,outcome,status,method,path,ip,user_agent,details) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(),boundary+delta,'bv','BV','session','PRIVATE_SESSION_REF','page.view','success',204,'POST','/mood','PRIVATE_IP','PRIVATE_DEVICE',JSON.stringify({keyId:'PRIVATE_KEY_ID',private:'PRIVATE_EXTRA'})).run();
+  }
+  let next=null;const ids=[];
+  do{
+    const page=await call('/api/audit?date=2001-01-01&limit=1'+(next?'&cursor='+encodeURIComponent(next):''),undefined,a.cookie);
+    ids.push(...page.data.items.map(item=>item.id));
+    assert.ok(page.data.items.every(item=>item.createdAt>=boundary&&item.createdAt<boundary+86400000));
+    const serialized=JSON.stringify(page.data);for(const secret of ['PRIVATE_SESSION_REF','PRIVATE_IP','PRIVATE_DEVICE','PRIVATE_KEY_ID','PRIVATE_EXTRA'])assert.ok(!serialized.includes(secret));
+    for(const item of page.data.items)assert.deepEqual(Object.keys(item).sort(),['id','createdAt','actorId','actorName','subjectId','action','outcome','path','authType','kind','reason','count'].sort());
+    next=page.data.nextCursor;
+  }while(next);
+  assert.equal(ids.length,3);assert.equal(new Set(ids).size,3);
+  const outsiderToken='f'.repeat(64),hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(outsiderToken));
+  await db.prepare("INSERT INTO users (id,name,created_at,updated_at) VALUES ('outsider','Outsider',0,0)").run();
+  await db.prepare('INSERT INTO sessions (token_hash,user_id,credential_version,expires_at) VALUES (?,?,0,?)').bind(Buffer.from(hash).toString('hex'),'outsider',Date.now()+60000).run();
+  await call('/api/audit',undefined,'island_identity='+outsiderToken,'GET',403);
+
   // A log-store failure must not encourage retrying an already committed write.
   await db.prepare('DROP TABLE audit_events').run();
   const saved=await call('/api/records',{kind:'wish',data:{title:'Still saved',category:'生活',done:false}},a.cookie,'POST',201);
   assert.ok(await db.prepare('SELECT id FROM records WHERE id=?').bind(saved.data.id).first());
-  console.log(`PASS ${checks} audit HTTP checks: verified actors, failed login, restore, concurrent requests, page deduplication, CRUD, API keys, photo sharing, reset/logout/revocation, secret redaction and logging outage.`);
+  console.log(`PASS ${checks} audit HTTP checks: attribution, CRUD, authentication, viewer permissions, filtering, Beijing date boundaries, stable pagination, private-field projection and logging outage.`);
 }finally{await runtime.dispose();await rm(temporary,{recursive:true,force:true});}
