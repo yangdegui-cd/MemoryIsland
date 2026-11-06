@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 export const records = sqliteTable('records', {id:text('id').primaryKey(),userId:text('user_id').notNull(),kind:text('kind').notNull(),data:text('data').notNull(),createdAt:integer('created_at').notNull()});
 export const users = sqliteTable('users', {
   id:text('id').primaryKey(), name:text('name').notNull(), timeZone:text('time_zone').notNull().default('UTC'),
@@ -24,3 +24,13 @@ export const apiKeys = sqliteTable('api_keys', {
   scopes:text('scopes').notNull(), credentialVersion:integer('credential_version').notNull(),
   createdAt:integer('created_at').notNull(), expiresAt:integer('expires_at').notNull(),
 }, table=>[uniqueIndex('api_keys_token_hash_unique').on(table.tokenHash)]);
+
+// Historical attribution intentionally survives account/session/key deletion.
+export const auditEvents=sqliteTable('audit_events',{
+  id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),
+  actorId:text('actor_id'),actorName:text('actor_name'),authType:text('auth_type').notNull(),sessionRef:text('session_ref'),
+  subjectId:text('subject_id'),action:text('action').notNull(),outcome:text('outcome').notNull(),status:integer('status').notNull(),
+  method:text('method').notNull(),path:text('path').notNull(),targetId:text('target_id'),
+  ip:text('ip'),userAgent:text('user_agent'),details:text('details').notNull(),eventKey:text('event_key'),
+},table=>[index('audit_events_time').on(table.createdAt),index('audit_events_actor_time').on(table.actorId,table.createdAt),
+  index('audit_events_action_time').on(table.action,table.createdAt),uniqueIndex('audit_events_event_key').on(table.eventKey)]);

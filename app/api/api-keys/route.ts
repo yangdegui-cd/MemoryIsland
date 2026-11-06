@@ -1,3 +1,4 @@
+import {auditDetails} from '../../../lib/audit-context';
 import {and,desc,eq,gt} from 'drizzle-orm';
 import {getDb} from '../../../db';
 import {apiKeys} from '../../../db/schema';
@@ -20,5 +21,6 @@ export async function POST(request:Request){try{
   const token='di_'+randomToken();
   const key={id:crypto.randomUUID(),userId:user.id,name:input.name,tokenHash:await digest(token),prefix:token.slice(0,11),scopes:JSON.stringify(input.scopes),credentialVersion:user.credentialVersion,createdAt:now,expiresAt:now+input.expiresInDays*86400000};
   await db.insert(apiKeys).values(key);
+  auditDetails({targetId:key.id});
   return storageJson({id:key.id,name:key.name,token,scopes:input.scopes,expiresAt:key.expiresAt},201);
 }catch(error){return storageError(error);}}

@@ -3,12 +3,13 @@ import {and,eq,gt,lt} from 'drizzle-orm';
 import {getDb} from '../db';
 import {records,sessions,users} from '../db/schema';
 import {digest,randomToken} from './password';
+import {auditActor,auditDetails} from './audit-context';
 export const PAIR_OWNER='daily-island:alexx-bv';
 const COOKIE='island_identity';
 const LIFETIME=180*24*60*60;
 export type Person={id:string;name:string;timeZone:string;isPrimary:boolean;initialized:boolean};
 export class RequestError extends Error {constructor(message:string,public status=400){super(message);}}
-export function sameOrigin(r:Request){const origin=r.headers.get('origin');if((origin&&origin!==new URL(r.url).origin)||r.headers.get('sec-fetch-site')==='cross-site')throw new RequestError('请求来源无效',403);}
+export function sameOrigin(r:Request){const origin=r.headers.get('origin');if((origin&&origin!==new URL(r.url).origin)||r.headers.get('sec-fetch-site')==='cross-site'){auditDetails({reason:'cross_origin'});throw new RequestError('请求来源无效',403);}}
 export function apiError(error:unknown){return Response.json({error:error instanceof RequestError?error.message:'服务器暂时无法连接，请稍后重试。'},{status:error instanceof RequestError?error.status:503,headers:{'Cache-Control':'no-store'}});}
 export async function seedPeople(){const now=Date.now();await getDb().insert(users).values([{id:'alexx',name:'Alexx',isPrimary:true,createdAt:now,updatedAt:now},{id:'bv',name:'BV',createdAt:now,updatedAt:now}]).onConflictDoNothing();}
 export async function people():Promise<Person[]>{const all=await getDb().select().from(users);return all.filter(v=>['alexx','bv'].includes(v.id)).sort((a,b)=>a.id.localeCompare(b.id)).map(v=>({id:v.id,name:v.name,timeZone:v.timeZone,isPrimary:v.isPrimary,initialized:!!v.passwordHash}));}
@@ -16,7 +17,8 @@ function tokenFrom(cookie:string|null){return cookie?.split(';').map(p=>p.trim()
 export async function currentUser(){
   const token=tokenFrom((await headers()).get('cookie'));if(!token||!/^\w{64}$/.test(token))return null;
   const found=await getDb().select({user:users,session:sessions}).from(sessions).innerJoin(users,eq(users.id,sessions.userId)).where(and(eq(sessions.tokenHash,await digest(token)),gt(sessions.expiresAt,Date.now()))).limit(1);
-  const match=found[0];return match&&match.user.credentialVersion===match.session.credentialVersion?match.user:null;
+  const match=found[0];if(!match||match.user.credentialVersion!==match.session.credentialVersion)return null;
+  await auditActor(match.user,'session',match.session.tokenHash);return match.user;
 }
 export async function readIdentity(){const user=await currentUser();return {userId:user?.id??null,people:user?await people():[]};}
 export async function requireUser(){const user=await currentUser();if(!user)throw new RequestError('请先选择你的身份并登录。',401);return user;}
@@ -29,5 +31,6 @@ export async function startSession(r:Request,user:typeof users.$inferSelect){
   // Carry over only the records belonging to the platform-verified visitor.
   const legacyId=(await headers()).get('oai-authenticated-user-id');
   if(legacyId)await db.update(records).set({userId:PAIR_OWNER}).where(eq(records.userId,legacyId));
+  await auditActor(user,'session',await digest(token));
   return Response.json({userId:user.id,people:await people()},{headers:{'Set-Cookie':sessionCookie(r,token),'Cache-Control':'no-store'}});
 }

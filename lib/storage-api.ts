@@ -5,6 +5,7 @@ import {getDb} from '../db';
 import {apiKeys,records,users} from '../db/schema';
 import {PAIR_OWNER,RequestError} from './identity';
 import {digest} from './password';
+import {auditActor,auditDetails} from './audit-context';
 import {calendarDate,chatInput,imageMime,photoInput,type StorageScope} from './storage-api-validation';
 
 export function storageJson(body:unknown,status=200){
@@ -20,6 +21,7 @@ export async function requireApiKey(request:Request,scope:StorageScope){
   const [found]=await getDb().select({key:apiKeys,user:users}).from(apiKeys).innerJoin(users,eq(users.id,apiKeys.userId))
     .where(and(eq(apiKeys.tokenHash,await digest(match[1])),gt(apiKeys.expiresAt,Date.now()))).limit(1);
   if(!found||found.key.credentialVersion!==found.user.credentialVersion)throw new RequestError('The API key is invalid or expired.',401);
+  await auditActor(found.user,'api_key',found.key.id);
   if(!(JSON.parse(found.key.scopes) as string[]).includes(scope))throw new RequestError('Missing API scope: '+scope,403);
   return {userId:found.user.id,keyId:found.key.id};
 }
@@ -51,12 +53,14 @@ async function findRecord(kind:Kind,id:string){
   return (await getDb().select().from(records).where(and(eq(records.id,id),eq(records.userId,PAIR_OWNER),eq(records.kind,kind))).limit(1))[0];
 }
 function replay(row:Row,fingerprint:string){
+  auditDetails({action:'api.'+row.kind+'.replay',targetId:row.id});
   if((JSON.parse(row.data) as StoredData)._api?.fingerprint!==fingerprint)throw new RequestError('externalId already exists with different content. Use a new externalId for a new import.',409);
   return storageJson({ok:true,replayed:true,item:publicRecord(row)});
 }
 export async function storeChat(request:Request,userId:string){
   const {externalId,...data}=chatInput.parse(await readStorageJson(request));
   const id=await recordId('chat',userId,externalId),fingerprint=await digest(JSON.stringify(data));
+  auditDetails({targetId:id});
   const existing=await findRecord('chat',id);if(existing)return replay(existing,fingerprint);
   const row={id,userId:PAIR_OWNER,kind:'chat',createdAt:Date.now(),data:JSON.stringify({...data,authorId:userId,_api:{externalId,fingerprint}})};
   const inserted=await getDb().insert(records).values(row).onConflictDoNothing().returning();
@@ -79,6 +83,7 @@ export async function storePhoto(request:Request,userId:string){
   if(!mime)throw new RequestError('Only JPEG, PNG and WebP images are supported.',415);
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',image)),n=>n.toString(16).padStart(2,'0')).join('');
   const fingerprint=await digest(JSON.stringify({...data,hash})),id=await recordId('photo',userId,externalId);
+  auditDetails({targetId:id});
   const existing=await findRecord('photo',id);if(existing)return replay(existing,fingerprint);
   // A unique attempt object prevents concurrent retries from deleting the winner's file.
   const key='photos/'+encodeURIComponent(PAIR_OWNER)+'/'+crypto.randomUUID();
