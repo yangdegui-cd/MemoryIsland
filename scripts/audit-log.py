@@ -23,7 +23,12 @@ zone = ZoneInfo('Asia/Shanghai')
 databases = [args.db] if args.db else list(args.data_dir.rglob('*.sqlite'))
 connections = []
 for path in databases:
-    connection = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)
+    # Workerd may remove idle WAL sidecars. SQLite must be able to recreate
+    # those bookkeeping files even for SELECTs; query_only forbids data writes.
+    # mode=rw still refuses to create a missing database by mistake.
+    connection = sqlite3.connect(path.resolve().as_uri() + '?mode=rw', uri=True)
+    connection.execute('PRAGMA query_only=ON')
+    connection.execute('BEGIN')
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='audit_events'").fetchone():
         connections.append(connection)
     else:

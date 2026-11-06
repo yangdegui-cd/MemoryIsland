@@ -23,6 +23,6 @@ sudo python3 scripts/audit-log.py --user BV --date 2026-11-06
 sudo python3 scripts/audit-log.py --user BV --include-attempts --json
 ```
 
-`--user BV` 默认仅匹配**已验证为 BV**的事件。加 `--include-attempts` 才会同时显示试图使用 BV 身份的失败/识别请求。`--db` 可指定数据库文件，默认从 `/opt/daily-island/data` 中发现唯一审计数据库，以 SQLite 只读模式连接。
+`--user BV` 默认仅匹配**已验证为 BV**的事件。加 `--include-attempts` 才会同时显示试图使用 BV 身份的失败/识别请求。`--db` 可指定数据库文件，默认从 `/opt/daily-island/data` 中发现唯一审计数据库。连接启用 SQLite `query_only`，禁止修改数据；SQLite 可能创建读取 WAL 所需的辅助文件。
 
 日志从本次部署起生效；过去只有 IP/浏览器的访问不会补写成确定身份。
