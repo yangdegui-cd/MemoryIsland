@@ -4,8 +4,8 @@
 SSH：`ssh -i ~/.ssh/id_rsa ubuntu@43.135.170.243`。root 不接受此密钥。
 
 - 服务：Nginx 443 HTTPS → Docker 容器 daily-island（127.0.0.1:8787）；80 用于跳转和证书验证。
-- 镜像：daily-island:music-links-20261102-v5；重启策略 unless-stopped。
-- 当前发布文件：/home/ubuntu/daily-island-music-links-20261102-v5。旧发布目录保留。
+- 镜像：daily-island:album-sharing-20261105；重启策略 unless-stopped。
+- 当前发布文件：/home/ubuntu/daily-island-album-sharing-20261105。旧发布目录保留。
 - 持久化数据：/opt/daily-island/data（d1 SQLite、r2 照片文件）。更新镜像不应删除这个目录。
 - 登录沿用项目的 Alexx / BV 密码登录，首次使用由本人设置密码。未复制本机预览数据库或照片。
 - 使用 HTTPS 域名访问并登录；登录会话 Cookie 设置 Secure、HttpOnly 和 SameSite=Lax。
@@ -143,3 +143,14 @@ Nginx 新增 `/music/` 静态服务；9 首音频的 HEAD 长度、首段/中段
 发布镜像 `daily-island:music-links-20261102-v5`，目录 `/home/ubuntu/daily-island-music-links-20261102-v5`。切换前备份 `/opt/daily-island/backups/data-music-links-20261102-v5.tar.gz`，旧容器 `daily-island-before-music-links-20261102-v5` 保留；持久化目录、媒体室、Nginx 配置与原有歌曲不变。
 
 验证：生产构建通过，21 首发布音频哈希匹配。新增音频公网 HEAD 200、首段/中段/末段 Range 206 且字节一致，线上脚本与构建一致。浏览器歌单显示 21 首，实际加载 215.435 秒音频并持续播放，无媒体错误；原视频入口指向用户给出的链接。
+
+
+## 2026-11-05 单张照片分享
+
+记忆宫殿照片大图新增「分享 / Share」面板，明确开启后生成免登录查看单张照片的随机链接；支持复制、关闭和重新生成，中英文界面。原相册和照片接口仍需登录。分享只提供选中照片的标题、日期和图片，不开放其他记录。使用说明与接口见 `docs/photo-sharing.md`。
+
+镜像 `daily-island:album-sharing-20261105`，目录 `/home/ubuntu/daily-island-album-sharing-20261105`。新增 `0003_photo_shares.sql` 已执行，不会自动开启已有照片。Nginx 的 `/share/photos/` 交给应用并关闭该路径访问日志，响应禁止缓存和搜索收录。
+
+切换前备份 `/opt/daily-island/backups/data-album-sharing-20261105.tar.gz`，Nginx 备份 `/etc/nginx/backups/daily-island.pre-album-sharing-20261105`。旧容器 `daily-island-before-album-sharing-20261105` 保留。321 条原记录的完整内容哈希和 2 个账号数量在发布前后保持一致；21 首音频哈希匹配，媒体室未替换。静态资源增量同步，保留旧哈希资源及图片变体。
+
+验证：生产构建和 TypeScript 检查通过；隔离环境分享接口 47 项检查与存储 API 69 项回归检查通过。本地浏览器验证生成、复制、匿名查看、中英切换和关闭后旧链接失效。线上浏览器验证新分享入口与状态读取，未将用户已有照片用于公开测试；线上相册及 12 个 JS/CSS 资源正常，原私有照片/分享管理接口匿名返回 401，失效分享页面和图片返回 404 并携带 no-store/no-referrer/noindex 头。

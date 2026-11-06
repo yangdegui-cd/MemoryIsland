@@ -12,6 +12,12 @@ export const sessions = sqliteTable('sessions', {
   tokenHash:text('token_hash').primaryKey(), userId:text('user_id').notNull().references(()=>users.id),
   credentialVersion:integer('credential_version').notNull(), expiresAt:integer('expires_at').notNull(),
 });
+export const photoShares = sqliteTable('photo_shares', {
+  photoId:text('photo_id').primaryKey().references(()=>records.id,{onDelete:'cascade'}),
+  token:text('token').notNull(),
+  createdBy:text('created_by').notNull().references(()=>users.id),
+  createdAt:integer('created_at').notNull(),
+},table=>[uniqueIndex('photo_shares_token_unique').on(table.token)]);
 export const apiKeys = sqliteTable('api_keys', {
   id:text('id').primaryKey(), userId:text('user_id').notNull().references(()=>users.id),
   name:text('name').notNull(), tokenHash:text('token_hash').notNull(), prefix:text('prefix').notNull(),
